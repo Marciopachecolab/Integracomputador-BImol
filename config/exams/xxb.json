@@ -1,0 +1,151 @@
+{
+  "nome_exame": "xuxubelkezaxxb",
+  "slug": "xxb",
+  "equipamento": "7500",
+  "tipo_placa_analitica": "96",
+  "esquema_agrupamento": "96->24",
+  "kit_codigo": "",
+  "alvos": [
+    "xx",
+    "bel",
+    "xxb",
+    "ddddd",
+    "rp"
+  ],
+  "mapa_alvos": {
+    "xx": "xx",
+    "bel": "bel",
+    "xxb": "xxb",
+    "ddddd": "ddddd",
+    "rp": "rp"
+  },
+  "faixas_ct": {
+    "detect_max": 35.0,
+    "inconc_min": 35.01,
+    "inconc_max": 40.0,
+    "rp_min": 10.0,
+    "rp_max": 35.0
+  },
+  "rps": [
+    "rp"
+  ],
+  "export_fields": [],
+  "panel_tests_id": "xxb",
+  "controles": {
+    "cn": [],
+    "cp": [
+      "rp"
+    ]
+  },
+  "comentarios": "Cadastro via wizard V2 compat mode",
+  "versao_protocolo": "1.0",
+  "pocos_por_amostra": 4,
+  "targets_por_poco": [
+    {
+      "alvo": "xx",
+      "filtro": "FAM",
+      "poco": 1,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "bel",
+      "filtro": "NED",
+      "poco": 2,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "xxb",
+      "filtro": "NED",
+      "poco": 3,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "ddddd",
+      "filtro": "ROX",
+      "poco": 4,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "VIC",
+      "poco": 1,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "VIC",
+      "poco": 2,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "VIC",
+      "poco": 3,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "VIC",
+      "poco": 4,
+      "tipo": "RP"
+    }
+  ],
+  "limiares_ct_por_alvo_poco": [
+    {
+      "alvo": "xx",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "bel",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "xxb",
+      "poco": 3,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "ddddd",
+      "poco": 4,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 3,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 4,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    }
+  ]
+}

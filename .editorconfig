@@ -1,0 +1,32 @@
+# EditorConfig: https://editorconfig.org
+# Garante encoding consistente em todos os editores
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+charset = utf-8
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.json]
+indent_size = 2
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.ps1]
+charset = utf-8
+end_of_line = crlf
+
+[Makefile]
+indent_style = tab

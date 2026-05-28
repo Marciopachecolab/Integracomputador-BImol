@@ -1,0 +1,153 @@
+{
+
+  "nome_exame": "VR1e2 Biomanguinhos 7500",
+
+  "slug": "vr1e2_biomanguinhos_7500",
+
+  "equipamento": "7500 Real-Time",
+
+  "tipo_placa_analitica": "48",
+
+  "esquema_agrupamento": "96->48",
+
+  "kit_codigo": 427,
+
+  "alvos": [
+
+    "SC2",
+
+    "HMPV",
+
+    "INF A",
+
+    "INF B",
+
+    "ADV",
+
+    "RSV",
+
+    "HRV"
+
+  ],
+
+  "mapa_alvos": {
+
+    "SC2": "SC2",
+
+    "HMPV": "HMPV",
+
+    "INF A": "INF A",
+
+    "INF B": "INF B",
+
+    "ADV": "ADV",
+
+    "RSV": "RSV",
+
+    "HRV": "HRV"
+
+  },
+
+  "faixas_ct": {
+
+    "detect_max": 35.0,
+
+    "inconc_min": 35.01,
+
+    "inconc_max": 40.0,
+
+    "rp_min": 15.0,
+
+    "rp_max": 35.0
+
+  },
+
+  "rps": [
+
+    "RP"
+
+  ],
+
+  "gal_exame_codigo": "VRSRT",
+
+  "export_fields": [
+
+    "Influenzaa",
+
+    "influenzab",
+
+    "coronavirusncov",
+
+    "adenovirus",
+
+    "vsincicialresp",
+
+    "metapneumovirus",
+
+    "rinovirus"
+
+  ],
+
+  "panel_tests_id": "1",
+
+  "controles": {
+
+    "cn": [
+
+      "G11+G12"
+
+    ],
+
+    "cp": [
+
+      "H11+H12"
+
+    ]
+
+  },
+
+  "comentarios": "Exame VR1e2 Biomanguinhos 7500; placa 48; migrado de CSV",
+
+  "pocos_por_amostra": 2,
+
+  "targets_por_poco": [
+
+    {"alvo": "HMPV", "filtro": "NONE", "poco": 1, "tipo": "VIRAL"},
+
+    {"alvo": "INF A", "filtro": "NONE", "poco": 1, "tipo": "VIRAL"},
+
+    {"alvo": "INF B", "filtro": "NONE", "poco": 1, "tipo": "VIRAL"},
+
+    {"alvo": "RP", "filtro": "NONE", "poco": 1, "tipo": "RP"},
+
+    {"alvo": "SC2", "filtro": "NONE", "poco": 1, "tipo": "VIRAL"},
+
+    {"alvo": "ADV", "filtro": "NONE", "poco": 2, "tipo": "VIRAL"},
+
+    {"alvo": "HRV", "filtro": "NONE", "poco": 2, "tipo": "VIRAL"},
+
+    {"alvo": "RP", "filtro": "NONE", "poco": 2, "tipo": "RP"},
+
+    {"alvo": "RSV", "filtro": "NONE", "poco": 2, "tipo": "VIRAL"}
+
+  ],
+
+  "limiares_ct_por_alvo_poco": [
+
+    {"alvo": "HMPV", "poco": 1, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0},
+
+    {"alvo": "INF A", "poco": 1, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0},
+
+    {"alvo": "INF B", "poco": 1, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0},
+
+    {"alvo": "SC2", "poco": 1, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0},
+
+    {"alvo": "ADV", "poco": 2, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0},
+
+    {"alvo": "HRV", "poco": 2, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0},
+
+    {"alvo": "RSV", "poco": 2, "ct_minimo": 8.01, "ct_detectavel_limite": 35.0, "ct_inconclusivo_min": 35.01, "ct_inconclusivo_limite": 40.0}
+
+  ]
+
+}

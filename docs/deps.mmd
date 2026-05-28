@@ -1,0 +1,69 @@
+graph TD
+  E0T01["E0-T01 Baseline de testes"]
+  E0T02["E0-T02 Flags por fatia"]
+  E0T03["E0-T03 Playbook e papeis"]
+
+  E1T01["E1-T01 UI extracao organizada"]
+  E1T02["E1-T02 Protecoes de desempenho UI"]
+  E1T03["E1-T03 Rollout/rollback fatia 1"]
+
+  E2T01["E2-T01 Prompt nome arquivo"]
+  E2T02["E2-T02 Gerar <nome>_gal.csv"]
+  E2T03["E2-T03 Gerar <nome>_corrida.csv"]
+
+  E3T01["E3-T01 Tabela por exame"]
+  E3T02["E3-T02 Dual-write facade"]
+  E3T03["E3-T03 Verify/dry-run/apply auditado"]
+  E3T04["E3-T04 Gate de risco"]
+
+  E4T01["E4-T01 Precedencia de fonte de retomada"]
+  E4T02["E4-T02 Persistencia de edicoes"]
+  E4T03["E4-T03 Integracao com envio GAL"]
+
+  E5T01["E5-T01 Dashboard sem exemplos"]
+  E5T02["E5-T02 Drill-down corrida completa"]
+  E5T03["E5-T03 Hardening performance/privacidade"]
+
+  E6T01["E6-T01 Monitoramento diario"]
+  E6T02["E6-T02 Repair assistido em operacao"]
+  E6T03["E6-T03 Revisao semanal de risco"]
+
+  E7T01["E7-T01 Inventario de dependencias legadas"]
+  E7T02["E7-T02 Desativacao progressiva legado"]
+
+  E0T01 --> E0T02
+  E0T01 --> E0T03
+
+  E0T01 --> E1T01
+  E0T02 --> E1T01
+  E1T01 --> E1T02
+  E1T01 --> E1T03
+  E1T02 --> E1T03
+
+  E1T03 --> E2T01
+  E2T01 --> E2T02
+  E2T01 --> E2T03
+
+  E2T02 --> E3T01
+  E2T03 --> E3T01
+  E3T01 --> E3T02
+  E0T02 --> E3T02
+  E3T02 --> E3T03
+  E3T03 --> E3T04
+
+  E3T02 --> E4T01
+  E4T01 --> E4T02
+  E4T02 --> E4T03
+
+  E3T02 --> E5T01
+  E5T01 --> E5T02
+  E4T02 --> E5T02
+  E5T02 --> E5T03
+
+  E3T03 --> E6T01
+  E5T03 --> E6T01
+  E6T01 --> E6T02
+  E6T01 --> E6T03
+
+  E6T03 --> E7T01
+  E7T01 --> E7T02

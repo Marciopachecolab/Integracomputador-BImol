@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExamConfig",
+  "type": "object",
+  "required": [
+    "nome_exame",
+    "slug",
+    "equipamento",
+    "tipo_placa_analitica",
+    "esquema_agrupamento",
+    "kit_codigo",
+    "alvos",
+    "faixas_ct",
+    "rps",
+    "export_fields",
+    "panel_tests_id",
+    "controles"
+  ],
+  "properties": {
+    "nome_exame": { "type": "string" },
+    "slug": { "type": "string" },
+    "equipamento": { "type": "string" },
+    "tipo_placa_analitica": { "type": "string" },
+    "esquema_agrupamento": { "type": "string" },
+    "kit_codigo": { "type": ["integer", "string"] },
+    "alvos": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "mapa_alvos": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "faixas_ct": {
+      "type": "object",
+      "required": ["detect_max", "inconc_min", "inconc_max", "rp_min", "rp_max"],
+      "properties": {
+        "detect_max": { "type": "number" },
+        "inconc_min": { "type": "number" },
+        "inconc_max": { "type": "number" },
+        "rp_min": { "type": "number" },
+        "rp_max": { "type": "number" }
+      }
+    },
+    "rps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "export_fields": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "panel_tests_id": { "type": "string" },
+    "controles": {
+      "type": "object",
+      "required": ["cn", "cp"],
+      "properties": {
+        "cn": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cp": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "comentarios": { "type": "string" },
+    "versao_protocolo": { "type": "string" },
+    "pocos_por_amostra": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "targets_por_poco": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["alvo", "filtro", "poco", "tipo"],
+        "properties": {
+          "alvo": { "type": "string" },
+          "filtro": { "type": "string" },
+          "poco": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "tipo": { "type": "string" }
+        }
+      }
+    },
+    "limiares_ct_por_alvo_poco": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "alvo",
+          "poco",
+          "ct_minimo",
+          "ct_detectavel_limite",
+          "ct_inconclusivo_limite"
+        ],
+        "properties": {
+          "alvo": { "type": "string" },
+          "poco": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "ct_minimo": { "type": "number" },
+          "ct_detectavel_limite": { "type": "number" },
+          "ct_inconclusivo_limite": { "type": "number" }
+        }
+      }
+    }
+  }
+}

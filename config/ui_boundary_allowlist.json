@@ -1,0 +1,7 @@
+{
+  "ui_module_import_allowlist": [],
+  "ui_toolkit_import_allowlist": [
+    "services/cadastros_diversos.py",
+    "services/plate_viewer.py"
+  ]
+}

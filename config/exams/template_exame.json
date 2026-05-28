@@ -1,0 +1,25 @@
+{
+  "nome_exame": "Exame X",
+  "slug": "exame_x",
+  "equipamento": "7500 Real-Time",
+  "tipo_placa_analitica": "48",
+  "esquema_agrupamento": "96->48",
+  "kit_codigo": 0,
+  "alvos": [],
+  "mapa_alvos": {},
+  "faixas_ct": {
+    "detect_max": 38.0,
+    "inconc_min": 38.01,
+    "inconc_max": 40.0,
+    "rp_min": 15.0,
+    "rp_max": 35.0
+  },
+  "rps": ["RP"],
+  "export_fields": [],
+  "panel_tests_id": "",
+  "controles": {
+    "cn": [],
+    "cp": []
+  },
+  "comentarios": "Template para novos exames; preencha e salve como <slug>.json"
+}

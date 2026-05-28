@@ -1,0 +1,181 @@
+{
+  "nome_exame": "teste tarantela",
+  "slug": "tara",
+  "equipamento": "7500",
+  "tipo_placa_analitica": "96",
+  "esquema_agrupamento": "96->24",
+  "kit_codigo": "",
+  "alvos": [
+    "ss",
+    "xx",
+    "ci",
+    "yy",
+    "jytj",
+    "wefgwgeg",
+    "geqg1ef1"
+  ],
+  "mapa_alvos": {
+    "ss": "ss",
+    "xx": "xx",
+    "ci": "ci",
+    "yy": "yy",
+    "jytj": "jytj",
+    "wefgwgeg": "wefgwgeg",
+    "geqg1ef1": "geqg1ef1"
+  },
+  "faixas_ct": {
+    "detect_max": 35.0,
+    "inconc_min": 35.01,
+    "inconc_max": 40.0,
+    "rp_min": 10.0,
+    "rp_max": 35.0
+  },
+  "rps": [
+    "ci"
+  ],
+  "export_fields": [],
+  "panel_tests_id": "tara",
+  "controles": {
+    "cn": [],
+    "cp": [
+      "ci"
+    ]
+  },
+  "comentarios": "Cadastro via wizard V2 compat mode",
+  "versao_protocolo": "1.0",
+  "pocos_por_amostra": 4,
+  "targets_por_poco": [
+    {
+      "alvo": "ss",
+      "filtro": "FAM",
+      "poco": 1,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "xx",
+      "filtro": "VIC",
+      "poco": 1,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "ci",
+      "filtro": "NED",
+      "poco": 1,
+      "tipo": "CONTROL_INTERNAL"
+    },
+    {
+      "alvo": "yy",
+      "filtro": "ROX",
+      "poco": 2,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "jytj",
+      "filtro": "FAM",
+      "poco": 2,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "ci",
+      "filtro": "NED",
+      "poco": 2,
+      "tipo": "CONTROL_INTERNAL"
+    },
+    {
+      "alvo": "ci",
+      "filtro": "NED",
+      "poco": 3,
+      "tipo": "CONTROL_INTERNAL"
+    },
+    {
+      "alvo": "ci",
+      "filtro": "NED",
+      "poco": 4,
+      "tipo": "CONTROL_INTERNAL"
+    },
+    {
+      "alvo": "wefgwgeg",
+      "filtro": "CY5",
+      "poco": 3,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "geqg1ef1",
+      "filtro": "VIC",
+      "poco": 4,
+      "tipo": "BACTERIANO"
+    }
+  ],
+  "limiares_ct_por_alvo_poco": [
+    {
+      "alvo": "ss",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "xx",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "ci",
+      "poco": 1,
+      "ct_minimo": 15.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 35.0
+    },
+    {
+      "alvo": "yy",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "jytj",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "ci",
+      "poco": 2,
+      "ct_minimo": 15.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 35.0
+    },
+    {
+      "alvo": "ci",
+      "poco": 3,
+      "ct_minimo": 15.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 35.0
+    },
+    {
+      "alvo": "ci",
+      "poco": 4,
+      "ct_minimo": 15.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 35.0
+    },
+    {
+      "alvo": "wefgwgeg",
+      "poco": 3,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "geqg1ef1",
+      "poco": 4,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    }
+  ]
+}

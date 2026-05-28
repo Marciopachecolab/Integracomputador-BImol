@@ -1,0 +1,123 @@
+{
+  "nome_exame": "qefqefqfwf121",
+  "slug": "123",
+  "equipamento": "7500",
+  "tipo_placa_analitica": "96",
+  "esquema_agrupamento": "96->32",
+  "kit_codigo": "",
+  "alvos": [
+    "aaaa",
+    "RP",
+    "TTTTT",
+    "ZZZZ"
+  ],
+  "mapa_alvos": {
+    "aaaa": "aaaa",
+    "RP": "RP",
+    "TTTTT": "TTTTT",
+    "ZZZZ": "ZZZZ"
+  },
+  "faixas_ct": {
+    "detect_max": 35.0,
+    "inconc_min": 35.01,
+    "inconc_max": 40.0,
+    "rp_min": 10.0,
+    "rp_max": 35.0
+  },
+  "rps": [
+    "RP"
+  ],
+  "export_fields": [],
+  "panel_tests_id": "123",
+  "controles": {
+    "cn": [],
+    "cp": [
+      "RP"
+    ]
+  },
+  "comentarios": "Cadastro via wizard V2 compat mode",
+  "versao_protocolo": "1.0",
+  "pocos_por_amostra": 3,
+  "targets_por_poco": [
+    {
+      "alvo": "aaaa",
+      "filtro": "FAM",
+      "poco": 1,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "RP",
+      "filtro": "VIC",
+      "poco": 1,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "TTTTT",
+      "filtro": "ROX",
+      "poco": 2,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "RP",
+      "filtro": "VIC",
+      "poco": 2,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "ZZZZ",
+      "filtro": "CY5",
+      "poco": 3,
+      "tipo": "BACTERIANO"
+    },
+    {
+      "alvo": "RP",
+      "filtro": "VIC",
+      "poco": 3,
+      "tipo": "RP"
+    }
+  ],
+  "limiares_ct_por_alvo_poco": [
+    {
+      "alvo": "aaaa",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "RP",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "TTTTT",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "RP",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "ZZZZ",
+      "poco": 3,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "RP",
+      "poco": 3,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    }
+  ]
+}

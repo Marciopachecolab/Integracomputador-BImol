@@ -1,0 +1,8 @@
+pandas
+openpyxl
+matplotlib
+seleniumrequests
+dearpygui
+simplejson
+psycopg2-binary
+tk

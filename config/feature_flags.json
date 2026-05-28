@@ -1,0 +1,155 @@
+{
+  "USE_ANALISAR_CORRIDA_V2": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Usar método refatorado analisar_corrida_v2",
+    "created_at": "2026-01-31",
+    "owner": "team-dev"
+  },
+  "USE_CONTRACT_PARSER_ROUTING": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa roteamento de parser por contrato (faseada)",
+    "created_at": "2026-03-03",
+    "owner": "team-dev"
+  },
+  "USE_CONTRACT_ANALYSIS_RUNTIME": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa runtime de analise por contrato (faseada)",
+    "created_at": "2026-03-03",
+    "owner": "team-dev"
+  },
+  "USE_GAL_LEGACY_PANEL_CSV": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Permite writer legado painel_*_exame.csv (rollback)",
+    "created_at": "2026-03-03",
+    "owner": "team-dev"
+  },
+  "USE_GAL_LEGACY_SUCCESS_LEDGER": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Permite escrita do ledger legado gal_transacoes_sucesso.csv",
+    "created_at": "2026-03-08",
+    "owner": "team-dev"
+  },
+  "USE_CONTRACTUAL_CSV_LEGACY_FALLBACK": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Permite fallback permissivo para leitura de CSV contratual legado",
+    "created_at": "2026-03-08",
+    "owner": "team-dev"
+  },
+  "USE_EXAM_RUNS_CSV_WRITER": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa writer contratual corridas_<slug_exame>.csv (rollback por flag)",
+    "created_at": "2026-03-03",
+    "owner": "team-dev"
+  },
+  "USE_EXAM_RUNS_SQLITE_FIRST": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa persistencia SQLite-first para historico por exame com fallback CSV",
+    "created_at": "2026-03-04",
+    "owner": "team-dev"
+  },
+  "USE_GAL_LOGIN_HARDENED": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa login GAL endurecido com fallback legado por flag para rollback imediato",
+    "created_at": "2026-03-11",
+    "owner": "team-dev"
+  },
+  "USE_OPERATIONAL_TABULAR_VIEWER": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa visualizador tabular operacional na rota Historico com fallback legado",
+    "created_at": "2026-03-12",
+    "owner": "team-dev"
+  },
+  "USE_EXAM_CREATOR_REGISTRY_SAVE": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa persistencia do wizard de exame via RegistryExamEditor com rollback legado",
+    "created_at": "2026-03-26",
+    "owner": "team-dev"
+  },
+  "USE_MENU_ANALYSIS_LEGACY_COMPAT": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Mantem fallback legado de catalogo no menu; canario OFF governado por arquivo operacional/env",
+    "created_at": "2026-03-27",
+    "owner": "team-dev"
+  },
+  "USE_PLATE_SYNC_USE_CASE": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa sync_plate_to_analysis extraido da UI com rollback por flag",
+    "created_at": "2026-03-09",
+    "owner": "team-dev"
+  },
+  "USE_ANALYSIS_EXAMS_REGISTRY_READ": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa leitura canonica de exames via ExamRegistry (ativado C.2)",
+    "created_at": "2026-03-26",
+    "owner": "team-dev"
+  },
+  "USE_ANALYSIS_RUNTIME_REGISTRY_RULES": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa consumo canonico de regras/limiares via ExamRegistry V2 (ativado C.2)",
+    "created_at": "2026-03-26",
+    "owner": "team-dev"
+  },
+  "USE_ANALYSIS_RUNTIME_PROMOTION_GATE_ENFORCEMENT": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa enforce de promocao do runtime canonico somente com gate operacional aprovado",
+    "created_at": "2026-03-26",
+    "owner": "team-dev"
+  },
+  "USE_ANALYSIS_RUNTIME_STAGED_ROLLOUT": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Ativa rollout canario por estagios (10/25/50/100) para reduzir fallback legado de forma progressiva",
+    "created_at": "2026-03-26",
+    "owner": "team-dev"
+  }
+}

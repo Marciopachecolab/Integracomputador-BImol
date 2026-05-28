@@ -1,0 +1,37 @@
+# Auto detect text files
+* text=auto
+
+# Python
+*.py text eol=lf
+
+# Config
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+
+# Markdown
+*.md text eol=lf
+
+# Shell
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Web
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+
+# Keep these as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
+*.xls binary
+*.doc binary
+*.docx binary
