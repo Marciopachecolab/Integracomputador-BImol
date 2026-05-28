@@ -1,0 +1,23 @@
+{
+  "exam_id": "vr1e2_biomanguinhos_7500",
+  "nome_exame": "VR1e2 Biomanguinhos 7500",
+  "slug": "vr1e2_biomanguinhos_7500",
+  "contract_version": "1.0.0",
+  "equipment_id": "7500_extended",
+  "targets": ["SC2", "HMPV", "INF A", "INF B", "ADV", "RSV", "HRV"],
+  "target_aliases": {
+    "MPV": "HMPV"
+  },
+  "ct_thresholds": {
+    "detect_max": 38.0,
+    "inconc_min": 38.01,
+    "inconc_max": 40.0,
+    "rp_min": 15.0,
+    "rp_max": 35.0
+  },
+  "rp_targets": ["RP_1", "RP_2"],
+  "analysis_rules_profile_id": "vr1e2_biomanguinhos_7500",
+  "gal_profile_id": "vr1e2_biomanguinhos_7500",
+  "storage_profile_id": "default",
+  "panel_tests_id": "1"
+}

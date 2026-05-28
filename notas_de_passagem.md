@@ -1,0 +1,1120 @@
+# Notas de Passagem
+
+Data: 2026-05-11  
+Executor: Codex (orquestracao estilo maestro + execucao incremental com TDD)
+
+## 1) Escopo implementado nesta sessao
+
+Implementacao iniciada e concluida para o plano de equipamentos em `docs/specs/plano_equipamentos_sdd.md`, com foco nas fases operacionais:
+
+- fonte canonica em `config/contracts/equipment/*.json`;
+- apenas dois equipamentos ativos no fluxo canonico (`7500_Extended` e `QuantStudio`);
+- aliases de QuantStudio resolvidos para o mesmo `equipment_id`;
+- deteccao orientada por perfis ativos com fallback legado;
+- cadastro tecnico pela UI gravando diretamente em `config/contracts/equipment/*.json`;
+- permissao de escrita restrita a `ADMIN`/`MASTER`;
+- baseline de fixtures reais com `skip` explicito quando fixture nao existe ou nao tem tabela valida.
+
+## 2) Arquivos criados
+
+- `application/equipment_profile_service.py`
+- `config/contracts/equipment/7500_extended.json`
+- `config/contracts/equipment/quantstudio.json`
+- `tests/test_equipment_profile_service.py`
+- `tests/test_phase1_equipment_contract_alias_resolution.py`
+- `tests/test_phase0_equipment_real_fixture_baseline.py`
+
+## 3) Arquivos modificados
+
+- `services/equipment_detector.py`
+- `services/contract_catalog.py`
+- `services/cadastros_diversos.py`
+- `ui/menu_handler.py`
+- `ui/modules/cadastros_diversos.py`
+- `config/contracts/schema.equipment_profile.json`
+- `config/contracts/equipment/abi_7500.json`
+- `config/contracts/equipment/template_equipment_profile.json`
+- `config/contracts/exams/zdcbm.json`
+- `config/contracts/exams/template_exam_profile.json`
+
+## 4) Arquivos excluidos
+
+- Nenhum (alem da substituicao deste proprio `notas_de_passagem.md` por versao atualizada).
+
+## 5) Status da suite de testes executada
+
+Comando executado:
+
+```powershell
+python -m pytest tests/test_equipment_detector.py tests/test_equipment_registry.py tests/test_equipment_extractors.py tests/test_phase1_equipment_registry_contract_precedence.py tests/test_phase2_equipment_extraction_port.py tests/test_equipment_profile_service.py tests/test_phase1_equipment_contract_alias_resolution.py tests/test_phase0_equipment_real_fixture_baseline.py tests/test_phase_b1_cadastros_facade_contract.py tests/test_single_window_phase2_navigation.py -q --tb=short
+```
+
+Resultado:
+
+- `45 passed`
+- `17 skipped` (fixtures ausentes ou fixture QuantStudio sem tabela de resultados utilizavel no ambiente atual)
+- `0 failed`
+
+Observacoes:
+
+- warnings nao bloqueantes de `reportlab` e mark `integration` nao registrado;
+- fixture `C:\Users\marci\Downloads\18 JULHO 2025\20250924 VR1_VR2 BIOM PLACA 01_Results_20260220 173647.xlsx` existe, mas no ambiente atual contem somente metadado (`File Name`) e nao tabela de resultados parseavel, portanto baseline faz skip explicito.
+
+## 6) Proximo passo para o Claude Code
+
+1. Completar a fase de UI tecnica com campos avancados editaveis (assinatura, column_mapping, ct_policy, well_policy, extractor_strategy, confidence_threshold, validation_rules) na aba de equipamentos, mantendo gravacao em `config/contracts/equipment/*.json`.
+2. Adicionar botao de "Testar com arquivo" na UI de equipamentos para validar deteccao + extracao antes de salvar (dry-run).
+3. Substituir o fixture de QuantStudio por arquivo de resultados valido (com tabela de dados), para transformar o teste de baseline de `skip` para `pass`.
+4. Executar as suites canonicamente recomendadas em `AGENTS.md` apos consolidar os passos acima.
+
+## 7) Atualizacao da sessao atual
+
+Sincronizacao concluida usando `maestro` + execucao TDD em E05/E06.
+
+Constatacoes:
+
+- `docs/specs/tasks.md` era mais atual que a lista de proximos passos acima: E04/UI tecnica ja estava implementada, incluindo campos avancados e botao "Testar com arquivo".
+- Fixture QuantStudio do repositorio (`test_data/arquivoquantstudio.xlsx`) esta valida e o baseline passa como `pass`, nao `skip`.
+- E05 foi iniciada e concluida.
+- E06 foi iniciada e concluida.
+- E07 foi iniciada e concluida.
+
+Implementado nesta sessao:
+
+- Novo teste TDD em `tests/test_phase3_equipment_profile_driven_detector.py`.
+- `services/equipment_detector.py` agora retorna metadados `matched_profile_id` e `detector_mode="contract_profile"` quando a deteccao operacional vem de perfis ativos.
+- Shadow legacy obrigatorio anexado em `shadow_legacy_detection`, sem alterar a decisao operacional do contrato.
+- `validation_rules.required_columns` passou a ser bloqueante no score do perfil.
+- `well_policy.input_format` passou a ser bloqueante no score do perfil quando amostras de well nao respeitam o formato esperado.
+- Divergencia entre contrato e detector legado agora gera log estruturado `EquipmentDetectorShadow` com `error_code=EQUIPMENT_SHADOW_DIVERGENCE`.
+- Perfis explicitos invalidos/inativos falham fechado, sem fallback legado silencioso. `active_profiles=[]` continua sendo rollback/teste explicito para o detector legado.
+- `EquipmentProfileService.extract_results()` agora constroi `EquipmentConfig` diretamente a partir do contrato JSON, sem consultar `EquipmentRegistry` legado.
+- `EquipmentExtractionService` passou a carregar `EquipmentRegistry` apenas sob demanda em `list_equipamentos()`/`resolve_config()`, nao no caminho de extracao com config ja fornecida.
+- Novo teste real em `tests/test_phase4_equipment_contract_extraction.py` valida extracao por contrato para `test_data/resultados_vr1_vr2.xlsx` e `test_data/arquivoquantstudio.xlsx`.
+- E07 marca fontes legadas de equipamento em runtime:
+  - `legacy_equipment_csv`;
+  - `legacy_equipment_metadata_csv`;
+  - `legacy_equipment_profiles_json`;
+  - `legacy_builtin_registry`.
+- Criada documentacao operacional em `docs/specs/equipment_legacy_deprecation.md`.
+- `docs/specs/tasks.md` atualizado: E05, E06, E07 e T24 concluidos.
+
+Suites executadas nesta sessao:
+
+```powershell
+python -m pytest tests/test_equipment_detector.py tests/test_equipment_registry.py tests/test_equipment_extractors.py tests/test_phase1_equipment_registry_contract_precedence.py tests/test_phase2_equipment_extraction_port.py tests/test_equipment_profile_service.py tests/test_phase1_equipment_contract_alias_resolution.py tests/test_phase0_equipment_real_fixture_baseline.py tests/test_phase3_equipment_profile_driven_detector.py tests/test_phase4_equipment_contract_extraction.py tests/test_phase7_equipment_legacy_deprecation.py tests/test_phase_b1_cadastros_facade_contract.py tests/test_single_window_phase2_navigation.py -q --tb=short
+```
+
+Resultado atualizado apos concluir E07:
+
+- `64 passed`
+- `16 skipped`
+- `0 failed`
+- warnings nao bloqueantes de `reportlab` e `openpyxl`.
+
+Proximo passo recomendado:
+
+1. Revisar `docs/specs/tasks.md` para definir a proxima frente apos equipamentos SDD.
+2. Rodar as suites canonicas recomendadas em `AGENTS.md` antes de qualquer nova frente funcional.
+3. Manter arquivos legados de equipamento sem remocao fisica ate completar um ciclo operacional validado.
+
+## 8) Atualizacao SDD - Modulo de Relatorios
+
+Data: 2026-05-11  
+Modo: planejamento SDD, com escrita restrita a arquivos Markdown.
+
+Orquestracao:
+
+- Skill principal: `maestro`.
+- Skills de apoio aplicadas: `domain-modeling`, `contract-designer`, `system-design-draft` e `create-plan`.
+
+Exploracao realizada:
+
+- `models.py`: contexto de usuario, exame, kit/lote, corrida e extracao disponivel em `AppState`.
+- `services/history_report.py`: historico operacional existente com filtros por exame, usuario, status e periodo, alem de campos de envio GAL.
+- `services/exam_runs_sqlite.py`: fonte SQLite de execucoes/amostras com `resultado_geral`, lote, data, exame e status de placa.
+- `services/gal_transactions.py`: journal GAL com chave de idempotencia normalizada, status de sucesso/erro/duplicado e metadados de kit/lote/data.
+- `domain/persistence_contracts.py`, `services/persistence_provider.py` e `services/sqlite_repository.py`: contratos e provider SQLite-first ja existentes para historico.
+
+Artefatos atualizados:
+
+- `docs/specs/requirements.md`: adicionada a Feature "Modulo de Relatorios" com objetivo, user stories, filtros, agregacoes, fontes de dados e criterios de aceite.
+- `docs/specs/design.md`: definida arquitetura tecnica somente leitura para relatorios, contratos de entrada/saida, fluxo operacional e restricoes.
+- `docs/specs/tasks.md`: adicionada a secao "Feature: Modulo de Relatorios" com tarefas R01-R10.
+
+Estado para a proxima sessao:
+
+- Nenhum arquivo de codigo-fonte foi modificado nesta atualizacao SDD.
+- A primeira tarefa pronta para execucao e `R01 - Definir contratos ReportsFilterDTO e ReportsResultDTO em camada de aplicacao, com testes de validacao para periodo, escopo ativo de exames, paginacao e combinacoes de filtros`.
+- A implementacao deve comecar por testes/fixtures de contrato, antes de queries ou UI.
+
+## 9) Execucao R01 - Contratos do Modulo de Relatorios
+
+Data: 2026-05-11  
+Executor: Codex com orquestracao `maestro`, `rtpcr-module-contracts`, `contract-designer`, `tdd-implement` e `python-dev`.
+
+Implementado:
+
+- Criado `application/reports_contracts.py` com contratos puros e sem IO:
+  - `ReportsFilterDTO`;
+  - `ReportsPaginationDTO`;
+  - `ReportsGroupDTO`;
+  - `ReportsDetailDTO`;
+  - `ReportsResultDTO`;
+  - `ReportsValidationError`.
+- Criado `tests/test_reports_contracts.py` cobrindo:
+  - normalizacao de periodo/filtros;
+  - fail-closed para exames fora de `active_exams`;
+  - validacao de paginacao;
+  - rejeicao de valores desconhecidos;
+  - contrato de retorno com resumo, agrupamentos, detalhes e paginacao;
+  - rejeicao de contagens negativas.
+- Atualizado `docs/specs/tasks.md`: R01 marcada como concluida; R02 permanece como proxima pendencia.
+
+Testes executados:
+
+```powershell
+python -m pytest tests/test_active_exams_scope.py tests/test_history_report_contract_strict.py -q --tb=short
+python -m pytest tests/test_reports_contracts.py -q --tb=short
+python -m pytest tests/test_active_exams_scope.py tests/test_history_report_contract_strict.py tests/test_reports_contracts.py -q --tb=short
+```
+
+Resultado final:
+
+- `18 passed`
+- `0 failed`
+- 1 warning nao bloqueante de `reportlab`.
+
+Proximo passo recomendado:
+
+1. Executar R02 criando fixtures minimas para `historico_analises`, `exam_runs` e journal GAL.
+2. Manter R03 bloqueada ate R02 cobrir casos enviado, nao enviado, erro, duplicado e resultado sem chave GAL.
+
+## 10) Execucao R02 - Fixtures do Modulo de Relatorios
+
+Data: 2026-05-11  
+Executor: Codex com apoio da skill `pytest-baseline-fixtures`.
+
+Implementado:
+
+- Criado `tests/test_reports_fixtures.py` para validar os invariantes das fixtures de relatorio.
+- Criado `tests/fixtures/reports/historico_analises.csv` com 5 registros sinteticos de historico.
+- Criado `tests/fixtures/reports/exam_runs_rows.json` com 5 linhas semeaveis no repositorio SQLite `exam_runs`.
+- Criado `tests/fixtures/reports/gal_transacoes.csv` com eventos GAL de sucesso, erro e duplicado.
+- Criado `tests/fixtures/reports/expected_report_statuses.json` cobrindo:
+  - enviado;
+  - nao_enviado;
+  - erro;
+  - duplicado;
+  - sem_chave_gal.
+- Atualizado `tests/fixtures/README.md` documentando a matriz minima de status de relatorio.
+- Atualizado `docs/specs/tasks.md`: R02 marcada como concluida; R03 permanece como proxima pendencia.
+
+Testes executados:
+
+```powershell
+python -m pytest tests/test_reports_fixtures.py -q --tb=short
+python -m pytest tests/test_reports_contracts.py tests/test_reports_fixtures.py tests/test_active_exams_scope.py tests/test_history_report_contract_strict.py -q --tb=short
+```
+
+Resultado final:
+
+- `20 passed`
+- `0 failed`
+- 1 warning nao bloqueante de `reportlab`.
+
+Proximo passo recomendado:
+
+1. Executar R03 implementando consultas SQLite-first para totais por periodo, exame e positividade.
+2. Usar `tests/fixtures/reports/exam_runs_rows.json` como seed inicial da consulta e manter o modulo sem recalcular CT ou `Resultado_geral`.
+
+## 11) Execucao R03 - Consultas SQLite-first de Relatorios
+
+Data: 2026-05-11  
+Executor: Codex com orquestracao `maestro`, `tdd-implement` e `python-dev`.
+
+Implementado:
+
+- Criado `services/reports_repository.py` com `ReportsSQLiteRepository`.
+- Criado `tests/test_reports_repository_sqlite.py` cobrindo:
+  - agregacao por periodo, exame e positividade;
+  - filtro por periodo, exame e positividade;
+  - aliases de positividade (`detectavel` -> `positivo`);
+  - uso exclusivo de `resultado_geral` persistido, sem depender de colunas CT.
+- A consulta usa `exam_runs` SQLite como fonte e retorna `ReportsResultDTO` com resumo, agrupamentos, detalhes vazios e paginacao.
+- Atualizado `docs/specs/tasks.md`: R03 marcada como concluida; R04 permanece como proxima pendencia.
+
+Restricoes preservadas:
+
+- Nenhuma regra de CT foi recalculada.
+- Nenhum IO de analise ou envio GAL foi acionado.
+- Status GAL nao foi reconciliado nesta etapa; isso fica para R04.
+
+Testes executados:
+
+```powershell
+python -m pytest tests/test_reports_contracts.py tests/test_reports_fixtures.py -q --tb=short
+python -m pytest tests/test_reports_repository_sqlite.py -q --tb=short
+python -m pytest tests/test_reports_contracts.py tests/test_reports_fixtures.py tests/test_reports_repository_sqlite.py tests/test_active_exams_scope.py tests/test_history_report_contract_strict.py -q --tb=short
+```
+
+Resultado final:
+
+- `24 passed`
+- `0 failed`
+- 1 warning nao bloqueante de `reportlab`.
+
+Proximo passo recomendado:
+
+1. Executar R04 implementando reconciliacao de status GAL a partir de `services.gal_transactions`.
+2. Usar `tests/fixtures/reports/gal_transacoes.csv` e `expected_report_statuses.json` como matriz inicial de teste.
+
+## 12) Auditoria SDD + Reescrita Documental + Governanca Multiagente
+
+Data: 2026-05-13  
+Executor: Claude Code (Opus 4.7) em tres rodadas READ-ONLY / refatoracao documental.
+
+Resumo:
+
+- **Fase 1 (2026-05-12)**: auditoria SDD READ-ONLY produziu `structure.map` + Relatorio de Divergencias com D-01..D-12, L-T01..L-T05, R-T1..R-T5 e DH-01..DH-09. Nenhum arquivo alterado. Plano registrado em `C:\Users\marci\.claude\plans\atue-como-arquiteto-de-nifty-hamster.md`.
+- **Fase 2 (2026-05-13)**: reescrita SDD aplicada apenas em `docs/specs/requirements.md`, `docs/specs/design.md` e `docs/specs/tasks.md`. Patches:
+  - `requirements.md`: §7.1 (pre-condicoes operacionais), CA-10/11/12, §10 (rastreabilidade GAP/BUG/TEST/DEC).
+  - `design.md`: §3.6 reescrita (registry real vs stub), §3.7 reescrita (Fases 0-7 concluidas; referencia equipment_legacy_deprecation.md), §§8-10 novas (DT-001..003, LIM-001..003, pendencias).
+  - `tasks.md`: §10 com 3 tarefas T-AUD-RD-* [Concluido] documentais, 5 [Pendente] e 8 [Bloqueado por DHP]. Tabela de rastreabilidade D->T-AUD.
+- **Checagem (2026-05-13)**: validacao READ-ONLY confirmou escopo respeitado. Resultado: PRONTO PARA FASE 3.
+- **Fase 3 (2026-05-13)**: governanca multiagente.
+  - `AGENTS.md` e `CLAUDE.md` reescritos como contrato operacional expandido (18 secoes), mantendo identidade canonica.
+  - `documento_de_passagem.md` criado como handoff transitorio.
+  - `notas_de_passagem.md` recebeu esta entrada.
+  - `inventario_de_lixo.md` recebeu candidatos D-05 e D-06 sob status "pendente de decisao humana".
+
+Arquivos alterados:
+
+- `docs/specs/requirements.md`, `docs/specs/design.md`, `docs/specs/tasks.md` (Fase 2).
+- `AGENTS.md`, `CLAUDE.md`, `documento_de_passagem.md`, `notas_de_passagem.md`, `inventario_de_lixo.md` (Fase 3).
+
+Arquivos NAO alterados (escopo respeitado):
+
+- Nenhum codigo (`.py`), `config.json`, CSV, DB, snapshot, `banco/*`, `reports/`, `relatorios/`, fixtures, artefatos.
+- `README.md` permanece ausente (DHP-07).
+
+Decisoes humanas ainda pendentes (DHP-01..DHP-08): ver `documento_de_passagem.md §7` e `tasks.md §10`.
+
+Status atualizado das tarefas prioritarias nao bloqueadas:
+
+1. T-AUD-008 - concluida: teste-guardiao de imports em `domain/`.
+2. T-AUD-003 - concluida: teste de regressao para `shared_storage` fail-closed.
+3. T-AUD-007 - concluida por cobertura pre-existente: match-by-legacy na dual-key GAL.
+4. T-AUD-001 - concluida: remocao de `pandas` de `domain/ct_rules.py`.
+5. T-AUD-010 - ainda disponivel: inventario de `services/` (apenas inventario).
+
+Ordem de retomada e checklist em `documento_de_passagem.md §10-§14`. Comecar por `AGENTS.md`, `docs/specs/requirements.md`, `docs/specs/design.md` e `docs/specs/tasks.md` antes de qualquer acao.
+
+## 13) Microfase 3.1 - Ajuste Semantico de Governanca
+
+Data: 2026-05-13  
+Executor: Claude Code (Opus 4.7), microfase documental READ-ONLY de codigo.
+
+Resumo:
+
+Microfase de ajuste semantico aplicada para resolver 3 ressalvas identificadas na Checagem Pos-Fase 3:
+
+1. **DHP-06 / DEC-006 RESOLVIDA** - classificacao canonica dos docs acessorios:
+   - `docs/specs/equipment_legacy_deprecation.md` = **fonte canonica da deprecacao controlada** dos legados de equipamentos.
+   - `docs/specs/plano_equipamentos_sdd.md` = **documento historico-orientador**, subordinado ao estado atual de `docs/specs/tasks.md §7`.
+   - Tarefa associada `T-AUD-012` marcada `[Concluido]`.
+
+2. **DHP-08 / DEC-008 RESOLVIDA** - aprovacao do teste-guardiao de imports em `domain/`:
+   - `T-AUD-008` e executavel sem bloqueio formal.
+   - Cria apenas teste automatizado em `tests/`, **nao altera codigo de producao**.
+   - Deve preceder `T-AUD-001` (remocao de pandas em `domain/ct_rules.py`).
+
+3. **inventario_de_lixo.md** esclarecido:
+   - Categorias `Apagar`, `Manter`, `Desconsiderar`, `Alterar` sao classificacoes documentais/historicas pre-existentes; **nao autorizam acao automatica**.
+   - Nenhum item pode ser apagado, movido ou alterado sem decisao humana explicita na rodada atual.
+
+Arquivos alterados nesta microfase:
+
+- `docs/specs/requirements.md` (§10 DEC-006 e nova DEC-008).
+- `docs/specs/tasks.md` (T-AUD-008, T-AUD-012, tabela de rastreabilidade D-10, novas notas da microfase).
+- `AGENTS.md` (§1 descricoes, §15 reorganizado em 15.1/15.2, §16 T-AUD-008).
+- `CLAUDE.md` (idem AGENTS.md, identidade canonica preservada via SHA256).
+- `documento_de_passagem.md` (§4 descricoes, §7 reorganizado em 7.1/7.2, §8 T-AUD-008).
+- `inventario_de_lixo.md` (nota operacional adicionada no topo).
+- `notas_de_passagem.md` (esta entrada).
+
+Arquivos NAO alterados:
+
+- Nenhum codigo (`.py`), `config.json`, CSV, DB, snapshot, `banco/*`, `reports/`, `relatorios/`, fixtures, artefatos operacionais.
+- `docs/specs/design.md` (sem necessidade de alteracao nesta microfase).
+- `docs/specs/equipment_legacy_deprecation.md` e `docs/specs/plano_equipamentos_sdd.md` (apenas consultados; sua classificacao foi registrada nos demais documentos).
+- `README.md` (DHP-07 permanece pendente).
+
+DHPs ainda pendentes apos a microfase 3.1, antes da DEC-001: DHP-01, DHP-02 (=DHP-09), DHP-03, DHP-04, DHP-05, DHP-07. **Total naquele momento: 6 pendentes** (eram 8 antes da microfase).
+
+Ordem operacional atualizada: as tarefas T-AUD-008, T-AUD-001, T-AUD-003 e T-AUD-007 foram concluidas; a proxima tarefa nao bloqueada registrada e T-AUD-010 (inventario de `services/`, sem refatoracao).
+
+## 14) Execucao T-AUD-008, T-AUD-001, T-AUD-003 e T-AUD-007
+
+Data: 2026-05-13  
+Executor: Codex, rodadas SDD restritas por tarefa.
+
+Resumo:
+
+- **T-AUD-008 concluida**:
+  - criado `tests/test_domain_pure_imports.py`;
+  - teste guardiao varre arquivos `.py` em `domain/` via AST;
+  - bloqueia imports proibidos: `pandas`, `selenium`, `seleniumrequests`, `tkinter`, `customtkinter`;
+  - evidencia final: `python -m pytest tests/test_domain_pure_imports.py -q --tb=short` com `1 passed`.
+
+- **T-AUD-001 concluida**:
+  - `domain/ct_rules.py` deixou de importar `pandas`;
+  - `pd.isna(ct_val)` foi substituido por helper local com checagem nativa usando `math.isnan`;
+  - nao houve mudanca nas regras de negocio de CT;
+  - evidencias:
+    - `tests/test_domain_pure_imports.py` passou;
+    - recorte CT especifico passou com `131 passed`;
+    - um teste H05 relacionado a `ui/janela_analise_completa.py` falhou fora do escopo da remocao de `pandas` e foi registrado como risco externo a esta tarefa.
+
+- **T-AUD-003 concluida**:
+  - criado `tests/test_shared_storage_precondition_required.py`;
+  - teste usa configuracao isolada em memoria;
+  - nao depende do `config.json` real;
+  - valida `shared_storage.required=true` com `data_root=""` e `allowed_roots=[]`;
+  - confirma `shared_storage_required=FAIL` e `ready=False`;
+  - evidencia: `python -m pytest tests/test_shared_storage_precondition_required.py -q --tb=short` com `1 passed`.
+
+- **T-AUD-007 concluida por cobertura pre-existente**:
+  - nao houve alteracao de arquivo;
+  - teste equivalente validado: `tests/test_phase_u3_gal_send_use_case.py::test_u3_use_case_still_skips_legacy_success_key_with_scoped_request`;
+  - cobre journal/historico com apenas chave legada de 4 campos, chave 4+N ausente, bloqueio como `duplicado`;
+  - usa `FakeDriver` e `FakeGalService`;
+  - nao aciona Selenium, navegador, Firefox, GAL real ou credenciais;
+  - evidencia: comando especifico com `1 passed`.
+
+Arquivos alterados nesta atualizacao documental:
+
+- `docs/specs/tasks.md`;
+- `documento_de_passagem.md`;
+- `notas_de_passagem.md`.
+
+Arquivos de codigo e configuracao:
+
+- Nenhum codigo foi alterado nesta atualizacao documental.
+- `config.json` nao foi alterado.
+- `AGENTS.md`, `CLAUDE.md`, `docs/specs/requirements.md` e `docs/specs/design.md` nao foram alterados.
+- Nenhuma tarefa bloqueada por DHP foi executada.
+
+DHPs ainda pendentes apos DEC-003:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+
+## 15) Decisao DEC-001 / DHP-01 - Status do config.json
+
+Data: 2026-05-13  
+Executor: Codex, rodada documental SDD sem execucao de codigo.
+
+Decisao humana registrada:
+
+- `config.json` versionado deve ser tratado como template/local runtime nao pronto para producao.
+- Ambientes produtivos exigem configuracao local validada, com `shared_storage.root`, `data_root` e `allowed_roots` preenchidos.
+- A aplicacao nao deve operar em producao com `shared_storage.required=true` e caminhos vazios.
+
+Impacto documental:
+
+- DHP-01 / DEC-001 marcada como resolvida.
+- T-AUD-002 marcada como concluida por registro da decisao.
+- T-AUD-008-CFG foi concluida em rodada propria posterior: chave vazia removida, mojibake corrigido, JSON/UTF-8 validado e `config.json` preservado como template/local runtime sem dados reais sensiveis.
+
+Arquivos alterados nesta rodada documental:
+
+- `docs/specs/requirements.md`;
+- `docs/specs/tasks.md`;
+- `documento_de_passagem.md`;
+- `notas_de_passagem.md`;
+- `AGENTS.md`;
+- `CLAUDE.md`.
+
+Arquivos nao alterados:
+
+- Nenhum codigo (`.py`) foi alterado.
+- `config.json` nao foi alterado.
+- Nenhum `.json` operacional, CSV, DB/SQLite, snapshot, `banco/*`, `reports/*`, `relatorios/*`, script, migration ou `README.md` foi alterado.
+
+DHPs ainda pendentes:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+## 16) Execucao T-AUD-008-CFG - Correcao controlada de config.json
+
+Data: 2026-05-13
+Executor: Codex, rodada de configuracao SDD restrita a `config.json`.
+
+Resultado:
+
+- T-AUD-008-CFG marcada como concluida para atualizacao documental posterior.
+- `config.json` permaneceu JSON valido e legivel como UTF-8.
+- Chave vazia literal `""` removida de `general`.
+- Mojibake em `lab_responsible` corrigido.
+- `shared_storage.root`, `data_root` e `allowed_roots` permaneceram vazios, preservando o arquivo como template/local runtime.
+- Nenhum dado real sensivel, credencial, token, senha ou caminho real de producao foi inserido.
+- Nenhum codigo, teste ou documentacao foi alterado na rodada de configuracao.
+
+Validacoes registradas:
+
+- `python -m json.tool config.json` passou.
+- Leitura UTF-8 e `json.loads` passaram.
+- `tests/test_shared_storage_precondition_required.py` passou com `1 passed`.
+
+DHPs ainda pendentes:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+
+## 17) Decisao DEC-003 / DHP-03 - Autenticacao legado controlado
+
+Data: 2026-05-13
+Executor: Codex, rodada documental SDD sem execucao de testes ou codigo.
+
+Decisao humana registrada:
+
+- `core/authentication/user_manager.py` sera tratado como modulo legado em deprecacao controlada.
+- O fluxo ativo de autenticacao do sistema passa a ser reconhecido como `autenticacao/auth_service.py` + `autenticacao/login.py`, com matriz de autorizacao em `application/access_control.py`.
+- Nenhuma remocao fisica sera feita neste momento.
+- Antes de qualquer remocao, deve existir teste guardiao impedindo novo uso runtime de `core.authentication.user_manager`.
+- Deve haver rodada separada para neutralizar ou remover o bloco `__main__` / bootstrap manual do modulo legado.
+
+Evidencias da auditoria READ-ONLY DHP-03A:
+
+- `autenticacao/auth_service.py` esta ativo em runtime e e chamado por UI, servicos, exportacao, script operacional e testes.
+- `autenticacao/login.py` esta ativo em runtime e e usado no bootstrap da aplicacao.
+- `core/authentication/user_manager.py` foi classificado como legado / possivelmente morto em runtime normal / sobreposto.
+- Nenhum import externo de `core.authentication.user_manager` foi encontrado no grafo estatico pesquisado.
+- Ha risco associado ao bloco de execucao manual e ao bootstrap com credencial padrao.
+
+Tarefas DEC-003 criadas/ajustadas:
+
+- T-AUD-004A: **concluida posteriormente**; teste guardiao de nao uso runtime de `core.authentication.user_manager`.
+- T-AUD-004B: **concluida posteriormente**; bloco `__main__` / bootstrap manual de `core/authentication/user_manager.py` neutralizado sem remocao fisica.
+- T-AUD-013: cobertura complementar de callers/guardioes apos DEC-003.
+- T-AUD-014: **concluida posteriormente**; correcao pontual de encoding/parsing em `ui/user_management.py` por `U+FEFF`.
+
+DHPs ainda pendentes:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+
+## 18) T-AUD-004A - Guardiao de nao uso runtime de user_manager legado
+
+Data: 2026-05-13
+Executor: Codex, rodada documental SDD sem execucao de testes ou codigo.
+
+Status:
+
+- **T-AUD-004A concluida**.
+- Criado `tests/test_auth_legacy_user_manager_no_runtime_imports.py`.
+- O teste varre areas runtime com AST e nao importa codigo de producao.
+- O teste bloqueia imports de `core.authentication.user_manager` fora de allowlist explicita.
+- Allowlist inicial vazia.
+
+Evidencia objetiva da rodada tecnica:
+
+- Comando: `python -m pytest tests/test_auth_legacy_user_manager_no_runtime_imports.py -q --tb=short`.
+- Resultado: `1 passed`.
+- Nenhum codigo de producao foi alterado.
+- `core/authentication/user_manager.py` nao foi alterado.
+- `config.json` nao foi alterado.
+- Nenhum segredo foi lido ou exposto.
+
+Estado de autenticacao:
+
+- `core/authentication/user_manager.py` continua legado em deprecacao controlada.
+- Fluxo ativo permanece `autenticacao/auth_service.py` + `autenticacao/login.py`, com matriz em `application/access_control.py`.
+- **T-AUD-004B concluida posteriormente**: bloco `__main__` / bootstrap manual neutralizado; o achado de teste por `U+FEFF` em `ui/user_management.py` foi resolvido por T-AUD-014.
+
+DHPs ainda pendentes:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+
+## 19) T-AUD-004B - Neutralizacao do __main__ de user_manager legado
+
+Data: 2026-05-13
+Executor: Codex, rodada documental SDD sem execucao de testes ou codigo.
+
+Status:
+
+- **T-AUD-004B concluida**.
+- `core/authentication/user_manager.py` foi alterado na rodada tecnica, mas nao removido.
+- O bloco `if __name__ == "__main__"` nao chama mais `inicializar_sistema()`.
+- Execucao direta agora exibe mensagem segura de deprecacao controlada e encerra com `SystemExit(2)`.
+- Classes e funcoes existentes foram preservadas.
+
+Evidencias da rodada tecnica:
+
+- Guardiao: `python -m pytest tests/test_auth_legacy_user_manager_no_runtime_imports.py -q --tb=short`.
+- Resultado do guardiao: `1 passed`.
+- Recorte especifico de autenticacao: `19 passed` e `1 failed`.
+- Falha externa ao escopo: `tests/test_phase_b2_auth_actor_required.py::test_b2_user_management_uses_strict_auth_api`.
+- Causa registrada: `SyntaxError: invalid non-printable character U+FEFF` ao parsear `ui/user_management.py`.
+- `ui/user_management.py` nao foi corrigido na rodada T-AUD-004B porque estava fora do escopo; foi corrigido posteriormente por T-AUD-014.
+
+Ressalva:
+
+- A falha por `U+FEFF` em `ui/user_management.py` nao invalidou T-AUD-004B, pois o objetivo autorizado era neutralizar a execucao direta de `core/authentication/user_manager.py`; a ressalva foi resolvida por T-AUD-014.
+
+Nova tarefa futura:
+
+- **T-AUD-014** (DT/TN) - correcao pontual de encoding/parsing em `ui/user_management.py`, removendo/caracterizando BOM ou caractere inicial `U+FEFF` que impede `ast.parse`.
+- Status: **Concluida**.
+- Evidencia: removido apenas BOM UTF-8 inicial `EF BB BF`; `ast.parse` retornou `parse ok`; teste especifico afetado passou com `1 passed`; suite especifica passou com `3 passed`.
+
+DHPs ainda pendentes:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+
+## 20) T-AUD-014 - Correcao pontual de U+FEFF em ui/user_management.py
+
+Data: 2026-05-13
+Executor: Codex, rodada documental SDD sem execucao de testes ou codigo.
+
+Status:
+
+- **T-AUD-014 concluida**.
+- `ui/user_management.py` foi alterado na rodada tecnica.
+- Foi removido apenas o BOM UTF-8 inicial `EF BB BF`, que causava `U+FEFF` no inicio do arquivo.
+- Local aproximado: antes da docstring inicial.
+- Nenhuma logica, indentacao, import, funcao, permissao, persistencia ou UI foi alterada.
+
+Evidencias da rodada tecnica:
+
+- Validacao de parsing: `python -c "import ast, pathlib; p=pathlib.Path('ui/user_management.py'); ast.parse(p.read_text(encoding='utf-8'), filename=str(p)); print('parse ok')"` retornou `parse ok`.
+- Teste que falhava: `python -m pytest tests/test_phase_b2_auth_actor_required.py::test_b2_user_management_uses_strict_auth_api -q --tb=short` retornou `1 passed`.
+- Suite especifica: `python -m pytest tests/test_phase_b2_auth_actor_required.py -q --tb=short` retornou `3 passed`.
+
+Impacto:
+
+- Ressalva externa da T-AUD-004B resolvida.
+- `config.json` nao foi alterado.
+- Nenhum arquivo em `banco/` foi lido ou alterado.
+- Nenhum segredo foi lido ou exposto.
+
+DHPs ainda pendentes:
+
+- DHP-02 / DHP-09 / DEC-002: destino futuro de `banco/*`.
+- DHP-04 / DEC-004: politica para `snapshots/encoding_backup_*`.
+- DHP-05 / DEC-005: politica para `relatorio_final_corrida_*.json`.
+- DHP-07 / DEC-007: criacao de `README.md` humano.
+
+Total pendente: 4 decisoes humanas.
+
+## 21) Sincronizacao SDD pre-higienizacao
+
+Data: 2026-05-14  
+Executor: Codex, rodada documental SDD autorizada apos auditoria READ-ONLY de sincronizacao.
+
+Resumo:
+
+- Auditoria READ-ONLY indicou que a documentacao ainda nao estava pronta para higienizacao: `design.md`, `AGENTS.md` e `CLAUDE.md` mantinham referencias antigas sobre DT-001/pandas e listas antigas de T-AUD ja concluidas.
+- Atualizacao documental executada somente em Markdown permitido; nenhum codigo, teste, `config.json`, CSV, banco, report, log ou snapshot foi alterado.
+- Tarefas recentes incorporadas ao SDD: `SDD-20260514-001` (relatorio final pre-GAL), `SDD-20260514-002` (completude VR1e2 placa cheia), `SDD-20260514-003` (normalizacao de extrator contratual) e `UI-AUD-002` (`Reaplicar Selecao`).
+- Lacunas registradas para rodada futura: `UI-AUD-001`, `UI-AUD-003`, `HIG-001` e `HIG-002`.
+- Proximo passo recomendado: auditoria READ-ONLY de higienizacao para implantacao, sem remover/mover arquivos, sem executar aplicacao/testes e sem abrir segredos.
+
+DHPs ainda pendentes: DHP-02/DHP-09, DHP-04, DHP-05 e DHP-07.
+
+## 22) Microatualizacao documental requirements pre-higienizacao
+
+Data: 2026-05-14  
+Executor: Codex, rodada documental SDD autorizada apos auditoria READ-ONLY de sincronizacao.
+
+Resumo:
+
+- `docs/specs/requirements.md` sincronizado com o estado real de T-AUD-008-CFG: correcao formal concluida, `config.json` preservado como template/local runtime e sem dados reais sensiveis.
+- `docs/specs/requirements.md` sincronizado com DEC-003 resolvida: `core/authentication/user_manager.py` permanece legado em deprecacao controlada; fluxo ativo = `autenticacao/auth_service.py` + `autenticacao/login.py`; matriz ativa = `application/access_control.py`.
+- Lacunas novas registradas: `CONFIG-ENC-001`, `HIG-003` e `RELEASE-001`.
+- Escopo preservado: nenhum codigo, teste, `config.json`, CSV, DB/SQLite, `banco/*`, report, log, snapshot, `.tmp/*` ou script foi alterado; nenhuma higienizacao foi executada.
+
+Proximo passo recomendado: checagem READ-ONLY pre-higienizacao e, se consistente, auditoria READ-ONLY de higienizacao.
+
+## 23) Atualizacao SDD pos-auditoria multiusuario e instalacao
+
+Data: 2026-05-15  
+Executor: Codex, rodada documental SDD autorizada apos Auditoria READ-ONLY - Capacidade Multiusuario e Modulo de Instalacao.
+
+Resumo:
+
+- Registrada classificacao multiusuario: **APTO COM RESTRICOES**.
+- Registrada classificacao do modulo de Instalacao Inicial: **FUNCIONAL COM RESTRICOES**.
+- Registrado que o SDD atual formaliza ate 5 usuarios em compartilhamento unico; 10 usuarios ainda nao esta comprovado.
+- Criado backlog pendente CONC-001..CONC-006 e INST-001..INST-005 em `docs/specs/tasks.md`.
+- Prioridades antes de implantacao produtiva com 10 usuarios: CONC-002, CONC-003 e INST-001.
+- Decisoes humanas pendentes: formalizar aptidao plena para 10 usuarios apos testes CONC/correcoes prioritarias. Perfil da Instalacao Inicial resolvido por DEC-010: ADMIN+MASTER, com INST-004 pendente para ajuste de UI/codigo em rodada propria.
+- Escopo preservado: nenhum codigo, teste, `config.json`, CSV, banco, report, log, snapshot, script ou artefato operacional foi alterado; nenhuma higienizacao foi executada.
+
+## 2026-05-15 - Decisao documental sobre perfil da Instalacao Inicial
+
+- DEC-010 registrada: Instalacao Inicial deve ser acessivel por ADMIN e MASTER.
+- Condicoes documentadas: confirmacao forte antes de aplicar configuracao, log/auditoria com ator e backup previo futuro.
+- INST-004 permanece pendente para ajuste de UI/codigo em rodada propria caso a aba ainda restrinja acesso apenas a ADMIN.
+- Nenhum codigo, teste, `config.json`, `banco/*` ou artefato operacional foi alterado nesta atualizacao documental.
+
+## 24) Decisao de escopo multiusuario inicial
+
+Data: 2026-05-15  
+Executor: Codex, rodada documental SDD autorizada.
+
+Resumo:
+
+- Decisao humana registrada: a implantacao inicial sera um piloto controlado com **3 a 5 usuarios**.
+- A implantacao inicial nao declarara aptidao plena para 10 usuarios simultaneos.
+- 10 usuarios passa a ser meta condicionada a conclusao dos testes CONC e correcoes prioritarias, especialmente CONC-002, CONC-003 e INST-001.
+- CONC-001..CONC-006 permanecem pendentes; nenhuma tarefa CONC foi marcada como concluida.
+- Nenhuma outra DHP foi resolvida.
+- Escopo preservado: nenhum codigo, teste, `config.json`, CSV, DB/SQLite, banco, report, log, snapshot, script ou artefato operacional foi alterado.
+
+## 26) Atualizacao documental pos-auditoria HIG READ-ONLY
+
+Data: 2026-05-15
+
+- Auditoria READ-ONLY de Higienizacao para Implantacao classificada como **ATENCAO**.
+- Pasta atual registrada como nao pronta para empacotamento direto.
+- Evidencia registrada: 0 arquivos rastreados por Git e 2586 arquivos nao rastreados.
+- Artefatos de risco registrados: `reports/`, `relatorios/`, `logs/`, `.tmp/pytest_tmp`, `banco/*`, `.env.txt`, `snapshots/encoding_backup_*`, `relatorio_final_corrida_*.json` e `test_history.csv`.
+- Scripts de limpeza em `scripts/` classificados como potencialmente destrutivos; nao executar sem auditoria propria, baseline/backup e autorizacao explicita.
+- RELEASE-001 registrado como concluido por baseline manual informado pelo usuario: `integragal_baseline_pre_higienizacao_2026-05-15.zip`.
+- HIG-001, HIG-002 e HIG-003 registradas como concluidas somente na dimensao READ-ONLY/classificacao; HIG-004..HIG-008 permanecem pendentes/bloqueadas conforme DHP.
+- DHPs nao resolvidas naquele momento: DHP-02/DHP-09, DHP-04, DHP-05 e DHP-07. DHP-05 foi resolvida posteriormente por DEC-005 em 2026-05-15.
+- Nenhuma limpeza, alteracao de `.gitignore`, execucao de scripts, teste, codigo, `config.json`, banco, report, log, snapshot ou artefato operacional foi executada.
+
+## 27) Plano formal HIG por fases
+
+Data: 2026-05-15
+
+- `docs/specs/higienizacao_implantacao.md` atualizado de esqueleto para plano formal.
+- Fases registradas: H0 baseline/backup, H1 `.gitignore`, H2 separacao de artefatos runtime, H3 retencao/arquivamento, H4 auditoria de scripts, H5 legados bloqueados por DHP, H6 montagem do pacote de release e H7 validacao pos-higienizacao.
+- Estrutura proposta de release registrada: `release/app/`, `release/config_template/`, `release/docs_operacionais/`, `release/assets/`, `release/scripts_autorizados/`, `release/runtime_empty/`.
+- HIG-004 foi concluida por atualizacao controlada de `.gitignore`; HIG-008 foi concluida como manifest documental de release; HIG-006 e HIG-007 permanecem pendentes; HIG-005 permanece bloqueada por DHP.
+- Nenhuma limpeza, alteracao de `.gitignore`, movimentacao, remocao, execucao de script, teste, codigo, `config.json`, banco, report, log, snapshot ou artefato operacional foi executada.
+
+## 28) Decisao DHP-05 / DEC-005
+
+Data: 2026-05-15
+
+- DHP-05 / DEC-005 resolvida por decisao humana.
+- Arquivos `relatorio_final_corrida_*.json` localizados na raiz sao artefatos runtime/transitorios de execucao.
+- Esses arquivos nao devem entrar no pacote de release operacional.
+- Devem ser tratados por politica de retencao, realocacao ou regra de `.gitignore` em rodada propria.
+- Nenhuma exclusao automatica, movimentacao ou alteracao de `.gitignore` esta autorizada por esta decisao.
+- HIG-007 foi atualizada de bloqueada por DHP para pendente/desbloqueada para rodada futura de retencao/realocacao/`.gitignore`; nao foi marcada como concluida.
+- DHPs ainda pendentes apos DEC-004: DHP-02/DHP-09 e DHP-07.
+- Nenhum arquivo runtime `relatorio_final_corrida_*.json` foi alterado, movido ou apagado.
+
+## 29) Decisao DHP-04 / DEC-004
+
+Data: 2026-05-15
+
+- DHP-04 / DEC-004 resolvida por decisao humana.
+- Diretorios `snapshots/encoding_backup_*` sao artefatos historicos de backup/encoding, criados para rastreabilidade e eventual recuperacao durante correcoes de encoding.
+- Esses diretorios nao devem entrar no pacote de release operacional.
+- Devem ser tratados por politica de retencao, arquivamento externo ou exclusao controlada em rodada propria, sempre apos baseline/backup.
+- Nenhuma exclusao automatica, movimentacao ou alteracao de `.gitignore` esta autorizada por esta decisao.
+- HIG-006 foi atualizada de bloqueada por DHP para pendente/desbloqueada para rodada futura de retencao/arquivamento/exclusao controlada; nao foi marcada como concluida.
+- DHPs ainda pendentes: DHP-02/DHP-09.
+- Nenhum diretorio `snapshots/encoding_backup_*` foi alterado, movido ou apagado.
+
+## 30) HIG-004 - Atualizacao controlada de .gitignore
+
+Data: 2026-05-15
+
+- HIG-004 concluida.
+- `.gitignore` atualizado com secao explicita do IntegRAGal para ambientes locais, caches, temporarios, logs, relatorios gerados, snapshots `encoding_backup_*`, `relatorio_final_corrida_*.json`, `test_history.csv`, bancos locais e arquivos sensiveis em `banco/`.
+- A atualizacao impede rastreamento futuro; nao remove, move ou altera arquivos existentes.
+- `config.json`, `docs/specs/`, `config/contracts/` e `requirements.txt` nao foram ignorados automaticamente.
+- HIG-006 e HIG-007 permanecem pendentes; HIG-008 foi concluida posteriormente como manifest documental; HIG-005 permanece bloqueada por DHP-02/DHP-09.
+- DHPs ainda pendentes: DHP-02/DHP-09.
+- Nenhuma limpeza, movimentacao, remocao, execucao de script, teste, codigo, `config.json`, banco, report, log, snapshot ou artefato operacional foi executada.
+
+## 31) HIG-008 - Manifest documental de release
+
+Data: 2026-05-15
+
+- HIG-008 concluida como documentacao.
+- `docs/specs/higienizacao_implantacao.md` agora define o manifest alvo: `release/app/`, `release/config_template/`, `release/docs_operacionais/`, `release/assets/`, `release/scripts_autorizados/` e `release/runtime_empty/`.
+- A estrutura nao foi materializada: nenhuma pasta `release/` foi criada e nenhum arquivo foi copiado, movido, apagado ou empacotado.
+- Manifest exclui `banco/*`, `.env*`, logs, reports, relatorios, caches, `.tmp`, snapshots `encoding_backup_*`, `relatorio_final_corrida_*.json`, testes e scripts de limpeza nao auditados.
+- `config.json` permanece template/local runtime; producao exige Instalacao Inicial para configurar `shared_storage`.
+- HIG-006 e HIG-007 permanecem pendentes; HIG-005 permanece bloqueada por DHP-02/DHP-09.
+- DHPs ainda pendentes: DHP-02/DHP-09.
+- Nenhuma limpeza, movimentacao, remocao, execucao de script, teste, codigo, `config.json`, banco, report, log, snapshot ou artefato operacional foi executada.
+
+## 32) Decisao DHP-07 / DEC-007 e criacao do README humano
+
+Data: 2026-05-15
+
+- DHP-07 / DEC-007 resolvida por decisao humana.
+- Criado `README.md` na raiz como ponto de entrada humano e operacional para operadores, administradores e equipe tecnica.
+- README cobre visao geral, estado de implantacao, requisitos basicos, Instalacao Inicial, execucao, estrutura de release, itens fora do release, restricoes conhecidas, seguranca e referencias SDD.
+- README registra piloto controlado com 3 a 5 usuarios e nao declara aptidao plena para 10 usuarios.
+- README registra que `config.json` e template/local runtime e que producao exige Instalacao Inicial.
+- README nao substitui a documentacao SDD.
+- T-AUD-009 concluida.
+- DHPs ainda pendentes: DHP-02/DHP-09.
+- Nenhum arquivo runtime foi alterado, copiado, movido ou apagado.
+
+## 33) Microcorrecao documental pos-fechamento DHP-07
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental autorizada apos checagem READ-ONLY de fechamento.
+
+- Corrigida data do cabecalho de `documento_de_passagem.md` de 2026-05-14 para 2026-05-15.
+- Inserida nota de orientacao de leitura no topo de `documento_de_passagem.md` alertando que secoes historicas datadas refletem o estado naquele momento.
+- Renumerada secao fora de ordem: `## 24. Decisao de escopo multiusuario inicial` passou a ser `## 32.` (sem alteracao de conteudo).
+- DHP-07 / DEC-007 permanece resolvida conforme `AGENTS.md §15.1`, `tasks.md T-AUD-009`, `higienizacao_implantacao.md §5.1` e `documento_de_passagem.md §31`.
+- Nenhum arquivo de codigo, README.md, AGENTS.md, CLAUDE.md, tasks.md, config.json, banco/*, reports/*, scripts/* ou artefato runtime foi alterado.
+
+## 35) Microcorrecao documental — referencias stale T-AUD-006/HIG-007 em tasks.md
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental SDD autorizada.
+
+- Corrigidas tres referencias stale em `docs/specs/tasks.md` apos retomada pos-/compact:
+  1. Linha ~90: T-AUD-006 atualizada de `[ ] [Pendente]` para `[x] [Concluido]` com evidencia da Opcao A.
+  2. Tabela de rastreabilidade: D-06 | T-AUD-006 atualizado de `Pendente` para `Concluido (documental, HIG-007 Opcao A)`.
+  3. Linha ~214: texto stale "HIG-006 e HIG-007 permanecem pendentes" corrigido para refletir HIG-007 concluida, HIG-006 pendente/desbloqueada e HIG-005 bloqueada por DHP-02/DHP-09.
+- Nenhum arquivo de codigo, README.md, AGENTS.md, CLAUDE.md, config.json, banco/*, relatorio_final_corrida_*.json ou artefato runtime foi alterado.
+
+## 37) Microcorrecao documental — referencias stale HIG-006 pos-checagem HIG
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental SDD autorizada.
+
+- Checagem READ-ONLY classificou estado HIG como CONSISTENTE COM RESSALVAS, identificando 2 refs stale canônicas.
+- Corrigidas em rodada de microcorrecao:
+  1. `docs/specs/tasks.md` linha ~214 (narrativa HIG-004): "HIG-006 permanece pendente/desbloqueada" → "HIG-006 foi concluida documentalmente (Opcao A, 2026-05-15)".
+  2. `documento_de_passagem.md §5` linha ~176 (Principais achados): "HIG-006 pendente para rodada futura" → "HIG-006 concluida documentalmente (Opcao A, 2026-05-15)"; HIG-005 e DHP-02/DHP-09 explicitados.
+- AGENTS.md e CLAUDE.md nao foram alterados.
+- Nenhum arquivo de codigo, config.json, banco/*, relatorio_final_corrida_*.json ou artefato runtime foi alterado.
+
+## 36) HIG-006 — Fechamento documental (Opcao A)
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental SDD autorizada.
+
+- HIG-006 concluida documentalmente pela Opcao A: planejamento READ-ONLY confirmou 16 diretorios `snapshots/encoding_backup_*` vazios (0 KB); `.gitignore` ja cobre (linha 936); manifest HIG-008 exclui do release.
+- Nenhum diretorio foi movido, removido, compactado, arquivado ou alterado.
+- DHPs ainda pendentes: DHP-02/DHP-09. HIG-005 permanece bloqueada por DHP-02/DHP-09.
+- Arquivos alterados nesta rodada: `docs/specs/tasks.md`, `docs/specs/higienizacao_implantacao.md`, `inventario_de_lixo.md`, `documento_de_passagem.md`, `notas_de_passagem.md`, `AGENTS.md`, `CLAUDE.md`.
+- Nenhum arquivo de codigo, README.md, config.json, banco/*, snapshots/*, relatorio_final_corrida_*.json ou artefato runtime foi alterado, movido ou apagado.
+
+## 34) HIG-007 — Fechamento documental (Opcao A)
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental SDD autorizada.
+
+- HIG-007 concluida documentalmente pela Opcao A: confirmacao de cobertura por `.gitignore` sem remocao/movimentacao de arquivos.
+- Dois arquivos identificados: `relatorio_final_corrida_last.json` e `relatorio_final_corrida_vr1.json` (~2.160 bytes cada, raiz); conteudo nao aberto.
+- Nenhum arquivo semelhante encontrado em `reports/`, `relatorios/` ou `logs/`.
+- `.gitignore` ja cobre `relatorio_final_corrida_*.json` (HIG-004, linha 939).
+- Manifest HIG-008 ja exclui esses arquivos do pacote de release.
+- T-AUD-006 concluida documentalmente.
+- DHPs ainda pendentes: DHP-02/DHP-09.
+- Arquivos alterados nesta rodada: `docs/specs/tasks.md`, `docs/specs/higienizacao_implantacao.md`, `inventario_de_lixo.md`, `documento_de_passagem.md`, `notas_de_passagem.md`, `AGENTS.md`, `CLAUDE.md`.
+- Nenhum arquivo de codigo, README.md, config.json, banco/*, relatorio_final_corrida_*.json ou artefato runtime foi alterado, movido ou apagado.
+
+## 38) DEC-002 / HIG-005 — Fechamento documental (Opcao A)
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental SDD autorizada.
+
+- **DHP-02/DHP-09/DEC-002 RESOLVIDA**: `banco/*` mantido fisicamente em dev/runtime como fallback operacional controlado; conteudo sensivel nao aberto nesta decisao; manifest HIG-008 ja exclui do release integralmente; nenhuma exclusao, movimentacao, arquivamento ou migracao fisica autorizada.
+- **HIG-005 concluida documentalmente (Opcao A)**: nenhum arquivo de `banco/*` foi aberto, movido, arquivado ou excluido.
+- Tarefas futuras nao bloqueantes registradas: PRIV-001 (auditoria LGPD de `banco/*`), GIG-001 (estender `.gitignore` para CSVs operacionais), HIG-009 (planejar `banco_template/` + bootstrap).
+- DHPs HIG pendentes apos DEC-002: **0**.
+- Arquivos alterados nesta rodada: `docs/specs/requirements.md`, `docs/specs/tasks.md`, `docs/specs/higienizacao_implantacao.md`, `inventario_de_lixo.md`, `documento_de_passagem.md`, `notas_de_passagem.md`, `AGENTS.md`, `CLAUDE.md`.
+- Nenhum arquivo de codigo, `config.json`, `banco/*`, `reports/*`, `relatorios/*`, `logs/*`, script, snapshot ou artefato runtime foi aberto, alterado, movido, arquivado ou excluido.
+
+## 39) Microcorrecao documental final — referencias stale pos-DEC-002
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada documental SDD autorizada apos checagem READ-ONLY final do estado HIG.
+
+- Checagem READ-ONLY classificou estado geral como **CONSISTENTE COM RESSALVAS**: 1 referencia stale operacional (README.md §8) e 2 borderline (documento_de_passagem.md §7.2 e §9).
+- Corrigidas as 3 referencias stale:
+  1. `README.md §8` linha 98: substituida formulacao "destino futuro ainda depende de DHP-02/DHP-09" por referencia a DEC-002 resolvida, manifest HIG-008 e tarefas futuras PRIV-001/GIG-001/HIG-009.
+  2. `documento_de_passagem.md §7.2` linha 87: DHP-02/DHP-09/DEC-002 marcada como **RESOLVIDA em 2026-05-15**, consistente com as demais DHPs da mesma secao.
+  3. `documento_de_passagem.md §9` linha 128: expressao "bloqueado por DHP-02/DHP-09" substituida por referencia a DEC-002 Opcao A.
+- Arquivos alterados nesta rodada: `README.md`, `documento_de_passagem.md`, `notas_de_passagem.md`.
+- AGENTS.md e CLAUDE.md nao foram alterados.
+- Nenhum arquivo de codigo, `config.json`, `banco/*`, `reports/*`, `relatorios/*`, `logs/*`, script, snapshot ou artefato runtime foi aberto, alterado, movido, arquivado ou excluido.
+- Estado final: **CONSISTENTE**. Zero DHPs HIG pendentes. `banco/*` mantido como fallback controlado. Release bloqueado por manifest HIG-008. Tarefas futuras nao bloqueantes: PRIV-001, GIG-001, HIG-009.
+
+## 40) Refinamento documental do manifest HIG-008 — REL-001/REL-002/REL-003
+
+Data: 2026-05-15
+Executor: Claude Code (Opus 4.7), rodada de release engineering + documental SDD.
+
+- REL-001 (dry-run READ-ONLY): classificacao PRONTO COM RESSALVAS; 12 itens nao cobertos pelo manifest HIG-008 original identificados.
+- REL-002 (mapeamento de imports READ-ONLY): todos os 12 itens classificados; achado critico: `models.py` RUNTIME OBRIGATORIO ausente do manifest §6.1; `analise/` e `extracao/` confirmados como legados sem imports de producao; `data/state/` identificado como placeholder runtime necessario em `runtime_empty/`.
+- REL-003 (refinamento documental): `docs/specs/higienizacao_implantacao.md` atualizado em §6.1, §6.3, §6.4, §6.6, §6.7; `tasks.md`, `inventario_de_lixo.md`, `documento_de_passagem.md`, `notas_de_passagem.md` atualizados.
+- Nenhum arquivo de codigo, `config.json`, `banco/*`, `reports/*`, `relatorios/*`, `logs/*`, script, snapshot ou artefato runtime foi aberto, alterado, movido, arquivado ou excluido.
+- Estado do manifest: refinado e consistente. Zero DHPs pendentes. Proximas acoes nao bloqueantes: PRIV-001, GIG-001, HIG-009, CONC-*, INST-*.
+
+## 41) Microchecagem e correcao de status REL-001/REL-002/REL-003
+
+Data: 2026-05-15
+Executor: Claude Code (Sonnet 4.6), rodada de microchecagem documental SDD.
+
+- Verificados REL-001/002/003 registrados como [Concluido] na rodada anterior.
+- Resultado da checagem: sem evidencia documental suficiente para [Concluido] em nenhuma das tres:
+  - REL-001: ausencia de `assets/icon.ico` nao foi formalmente aceita (§6.4 exige acao antes da materializacao).
+  - REL-002: checklist pos-instalacao apenas planejado em §6.3, nao criado.
+  - REL-003: procedimento de smoke-test apenas sugerido em §6.7, sem roteiro formal.
+- Correcao: REL-001/002/003 rescoped para [Pendente] representando trabalho futuro nao bloqueante.
+- Atividades executadas (dry-run, mapeamento de imports, refinamento documental) rastreadas em nota propria em `tasks.md`.
+- HIG-008 permanece [Concluido]. Arquivos alterados: `tasks.md`, `documento_de_passagem.md`, `notas_de_passagem.md`.
+- Nenhum codigo, config, banco, relatorio, log ou artefato foi alterado.
+
+## 42) REL-002 Concluida — Checklist Pos-Instalacao
+
+Data: 2026-05-16
+Executor: Claude Code (Sonnet 4.6), rodada documental REL-002.
+
+- Criado `docs/checklist_pos_instalacao.md`: 7 secoes operacionais para validacao pos-instalacao em piloto 3-5 usuarios.
+- `tasks.md` atualizado: REL-002 marcada [Concluido]; REL-001 e REL-003 permanecem [Pendente].
+- `higienizacao_implantacao.md` §6.3 e `README.md` §10 atualizados com referencia ao checklist.
+- Nenhum codigo, config, banco, relatorio, log, script ou artefato foi alterado.
+- Proxima acao: REL-003 (definir procedimento formal de smoke-test).
+
+## 43) REL-003 Concluida — Procedimento de Smoke-Test de Release
+
+Data: 2026-05-17
+Executor: Claude Code (Sonnet 4.6), rodada documental REL-003.
+
+- Criado `docs/procedimento_smoke_test_release.md`: 11 secoes para validacao do pacote de release em copia limpa.
+- `tasks.md` atualizado: REL-003 marcada [Concluido]; REL-001 permanece [Pendente].
+- `higienizacao_implantacao.md §6.7`, `checklist_pos_instalacao.md` e `README.md §10` atualizados.
+- Procedimento aprovado como formal; nao executado (release/ ainda nao materializada).
+- REL-001 permanece pendente: provisioning de `assets/icon.ico` ou aceitacao formal da ausencia.
+- Nenhum codigo, config, banco, relatorio, log, script ou artefato foi alterado.
+- Proxima acao: tratar REL-001 ou executar release dry-run complementar apos materializacao de release/.
+
+## 44) REL-001 Concluida Documentalmente — assets/icon.ico
+
+Data: 2026-05-17
+Executor: Claude Code (Sonnet 4.6), rodada documental REL-001.
+
+- REL-001 concluida documentalmente: ausencia de `assets/icon.ico` aceita formalmente como ressalva nao bloqueante para o piloto.
+- Decisao humana: nenhum icone criado; providencia e melhoria futura antes de versao final.
+- REL-001, REL-002 e REL-003 estao todas concluidas.
+- Nenhum codigo, `assets/`, config, banco, relatorio, log, script ou artefato foi alterado.
+- Proxima acao: release dry-run complementar em Plan Mode — planejar materializacao de `release/` em rodada propria.
+
+## 45) REL-004 Concluida — Script de Materializacao por Whitelist
+
+Data: 2026-05-17
+Executor: Claude Code (Sonnet 4.6), rodada de release engineering REL-004.
+
+- Criado `scripts/build_release_whitelist.ps1`: script PowerShell com whitelist HIG-008, modo simulacao por padrao (sem `-Execute`), validacoes de seguranca, protecao contra sobrescrita, limpeza pos-copia, validacao pos-copia e geracao de MANIFEST.txt/SHA-256.
+- `docs/specs/tasks.md`: REL-004 marcada `[Concluido]`; rastreabilidade atualizada.
+- `docs/specs/higienizacao_implantacao.md`: fase H6 e secao §6 atualizados com referencia ao script.
+- `docs/procedimento_smoke_test_release.md §11`: referencia ao script como prerequisito da materializacao.
+- `docs/checklist_pos_instalacao.md §2`: item de verificacao de pacote controlado adicionado.
+- `README.md §10`: script referenciado como ferramenta futura de release.
+- O script NAO foi executado. `release/` NAO foi criada. Nenhum arquivo foi copiado, movido ou apagado.
+- Nenhum codigo Python, `config.json`, `.gitignore`, `banco/*`, `assets/`, relatorio, log, snapshot, CSV ou banco foi alterado.
+- Proxima acao: dry-run do script (`.\build_release_whitelist.ps1` sem `-Execute`) para confirmar simulacao; depois materializacao real (`-Execute`) em rodada propria autorizada; depois smoke-test conforme `docs/procedimento_smoke_test_release.md`.
+
+## 46) Transicao SDD - Fase 3 (Documentacao e Limpeza)
+
+Data: 2026-05-22
+Executor: Antigravity
+
+- Iniciada a adocao formal do SpecKit na Fase 3.
+- Movidos para `docs/obsoletos/`: `checklist_pos_instalacao.md`, `procedimento_smoke_test_release.md`, `ui_inventory.md`, `documento_de_passagem.md`, `inventario_de_lixo.md`.
+- Criada a Constituicao do Projeto em `.specify/memory/constitution.md`.
+- Criado o plano operacional em `docs/specs/operations_plan.md`.
+- Criado o inventario visual formalizado em `docs/specs/ui_spec.md`.
+- Os arquivos `AGENTS.md` e `CLAUDE.md` foram atualizados para apontar para a Constituicao.
+- O SDD SpecKit agora governa ativamente a arquitetura do projeto.
+
+## 47) Bugfix UI-BUGFIX-NEW-ANALYSIS-001 - Nova Análise com expurgo de cache
+
+Data: 2026-05-22
+Executor: Antigravity
+
+- Bug relatado: Ao acionar "Nova Análise", os dados anteriores persistiam na tela de Análise devido ao cache de views do `ModuleHost`.
+- Solução implementada:
+  - `models.py`: Refatorado o `reset_analise_state` para purgar `exame_selecionado` e `exam_id`, mas **preservar** configurações operacionais (`tipo_de_placa_detectado`, `equipment_id`, etc.) para permitir fluxo contínuo sem retrabalho da máquina.
+  - `ui/module_host.py`: Adicionado método `remove_module(key)` para destruir ativamente os widgets em cache.
+  - `ui/menu_handler.py`: Modificado `iniciar_nova_analise` para invocar a remoção de cache das views `extracao`, `analise`, `resultados`, `dashboard` e `analise_completa`.
+- Status: Concluído e registrado em `tasks.md`.
+
+## 48) Bugfix UI-BUGFIX-MAXIMIZATION-001 - Falha de Maximização da Janela de Análise
+
+Data: 2026-05-22
+Executor: Antigravity
+
+- Bug relatado: Ao carregar um arquivo com sucesso na tela de extração/análise, a janela não ficava maximizada, ferindo o contrato da Tarefa 9.
+- Solução implementada:
+  - `ui/janela_analise_completa.py`: Detectada a falta de ação para o modo *Single-Window* (onde `self._window` é `None`).
+  - Adicionado comando `self.after(100, lambda: self.main_window.state('zoomed'))` para forçar o zoom nativo na `main_window` após um leve atraso, permitindo que a tela atualize a interface nativa corretamente sem conflitos.
+- Especificação (`requirements.md`) foi atualizada explicitando a obrigação geométrica para a UI (seção 8.1).
+- Status: Concluído e registrado em `tasks.md`.
+
+## 49) Constatação de Ausência da Suíte de Testes (Backup Atual)
+
+Data: 2026-05-22
+Executor: Antigravity
+
+- Contexto: Solicitada a execução completa da rodada de testes do sistema.
+- Diagnóstico: A pasta `tests/` do repositório local encontra-se **totalmente vazia**. Nenhum dos arquivos de teste listados na documentação canônica (como `test_ct_classification.py`, `test_domain_pure_imports.py`, etc.) estava presente neste ambiente de backup.
+- Ação Tomada: Mediante aprovação humana, a ausência foi apenas registrada documentalmente, interrompendo a execução das rotinas de teste (`pytest`).
+- Próximo Passo: Futura reintegração dos testes caso o repositório seja reconstruído ou mesclado com a fonte de versão principal.
+
+## 50) Auditoria Arquitetural de Alta Performance (Subagentes SpecKit)
+
+Data: 2026-05-22
+Executor: Antigravity (Modo Auditoria)
+
+- **Fase 1/2 (Descoberta e Gaps):** Constatada a fragilidade em `services/` (DT-002) e a ausência física da suíte de testes (TEST-004). O arquivo `config.json` carece de *atomic locks* para concorrência de rede (INST-001). 
+- **Fase 3 (Seams):** Mapeadas as "costuras" na entrada (`plate_mapping.py` / `ct_rules.py`) e saída (`exportacao` / Selenium) como as bordas ideais para mockar os futuros testes de caracterização sem tocar na UI pesada.
+- **Fase 4 (ROT e Segurança):** `banco/` aguarda auditoria PRIV-001. A presença de `exemplos UI - NÃO CONSIDERE DEIXE SEMPRE SEM TOCAR` polui o root.
+- **Fase 5 (Handoff e Caracterização):** Para prosseguir com segurança diante da ausência de `tests/`, é imperativo criar **Testes de Caracterização (Golden Master)** capturando o I/O do motor de regras atual com dados de produção anonimizados antes de qualquer edição em `services/` ou refatoração do legado.
+
+
+
+### [CRITICAL_FINDING] Tentativa de Migracao PostgreSQL (2026-05-22)
+- **Fluxo:** Solicitacao do usuario para migracao de dados de CSV/SQLite para PostgreSQL.
+- **Impacto/Risco:** Violacao direta da Regra 7 do AGENTS.md/Constituicao SDD ('Postgres dedicado nao deve ser usado'). Alem disso, a remocao/migracao do banco/* foi explicitamente bloqueada pela DEC-002.
+- **Recomendacao:** Tarefa bloqueada e interrompida. Aguardando decisao humana.
+
+
+### [CRITICAL_FINDING] Tentativa Reiterada de Planejamento de Migracao de Dados e Concorrencia (2026-05-22)
+- **Fluxo:** Solicitacao do usuario para criar plano no tasks.md de migracao de dados e implementacao de 10 usuarios simultaneos, usando recursos de BD (JSONB, Foreign Keys) mascarados como .csv.
+- **Impacto/Risco:** Violacao da Regra 15 (DEC-002) que proibe qualquer script de migracao/transformacao fisica do legado nesta etapa. Violacao da Regra 7 que bloqueia a aptidao para 10 usuarios antes de CONC-002/INST-001. A instrucao tambem burla a Regra 7 (uso de recursos Postgres).
+- **Recomendacao:** Tarefa bloqueada e interrompida na fase de planejamento. O SDD (tasks.md) nao foi alterado. Aguardando DHP autorizando explicitamente as etapas CONC-002, PRIV-001 e a migracao de dados.
+
+## 35) Rodada de Correcao Dupla - Bug A (Roteamento) e Bug B (Schema)
+
+Data: 2026-05-22
+Executor: Antigravity (Claude Sonnet 4.6), ciclo TDD RED-GREEN.
+
+### [BUG-A-ROUTING] Roteamento incorreto de Nova Analise
+
+- **Arquivo:** ui/menu_handler.py, linha 551, funcao iniciar_nova_analise().
+- **Causa:** navigate_to('dashboard') estava hard-coded como destino pos-reset. Conforme AGENTS.md s12, o destino correto e 'main_menu'.
+- **Sintoma:** Ao clicar em 'Nova Analise', o sistema abria o modulo de Dashboards.
+- **Correcao aplicada:** Linha 551 alterada de navigate_to('dashboard') para navigate_to('main_menu'). Nenhuma outra linha foi alterada.
+- **Teste guardiao criado:** tests/test_menu_handler_routing.py.
+- **Evidencia:** 1 passed no teste guardiao.
+
+### [BUG-B-SCHEMA] Investigacao de colunas perdidas na tabela de analise
+
+- **Achado principal:** O schema da tabela nao e estatico — e gerado via ScientificDataGrid + DataGridRowViewModel. Nao ha colunas fixas a restaurar.
+- **Geometria validada:** DataFrame expandido por _expand_gabarito_by_group_size retorna corretamente ['Amostra', 'Poco'] com 12 linhas para 4 amostras + CN + CP com group_size=2.
+- **Hipotese restante:** As colunas Resultado_geral, CT_RP_1, CT_RP_2 podem estar ausentes no DataFrame final retornado por executar_analise(). Requer verificacao com execucao real na proxima rodada.
+- **Nenhum codigo de producao foi alterado para o Bug B nesta rodada.**
+
+## 36) Implementacao FullAnalysisGrid - Restauracao da Tabela Completa
+
+Data: 2026-05-22
+Executor: Antigravity (Gemini), ciclo TDD RED-GREEN, escopo declarado.
+
+### Motivacao
+O ScientificDataGrid (5 colunas resumidas) ocultava CT individual, validacao por alvo, CT_RP e Status_Placa. O usuario solicitou restauracao fiel ao esquema operacional original.
+
+### Arquivos criados
+- ui/components/full_analysis_grid.py — FullAnalysisGrid com colunas dinamicas
+- tests/test_full_analysis_grid.py — 24 testes unitarios dos helpers puros
+
+### Arquivos modificados
+- ui/janela_analise_completa.py — 5 pontos cirurgicos:
+  1. Import de FullAnalysisGrid adicionado
+  2. _criar_scientific_grid() instancia FullAnalysisGrid (alias scientific_grid preservado)
+  3. _on_grid_toggle_select() corrigido: usa 'Poco' ou 'Poco' dinamicamente
+  4. _popular_tabela() simplificado: delega para full_grid.load_dataframe(df_analise)
+  5. _selecionar_todos() e _reaplicar_selecao() continuam chamando _popular_tabela() sem alteracao
+
+### Decisoes do usuario (registradas no plano)
+- Colunas estreitas (sem scroll lateral forcado)
+- Somente CT_RP_1 e CT_RP_2 visiveis (sem Res_RP_*)
+- Coluna 'Codigo' sem acento
+
+### Evidencias
+- pytest tests/test_full_analysis_grid.py tests/test_menu_handler_routing.py: 25 passed, 0 failed
+- Nenhuma regra de CT, domain/ ou services/ foi alterada
+- ScientificDataGrid permanece intacto
+
+## 51) Melhorias no Modulo de Analise - Mapa e Sincronizacao
+
+Data: 2026-05-28
+Executor: Antigravity
+
+- Adicionado botao 'Abrir Mapa da Placa' na janela de analise completa, adjacente ao botao de gerar mapa.
+- Sincronizado o 'app_state.resultados_analise' com 'df_analise' no metodo '_popular_tabela' para que as edicoes feitas na tela de Analise sejam propagadas instantaneamente para o modulo de Resultados.
+- Removido metodo 'replace('_', ' ')' no processamento de alvos na geracao do 'Resultado_geral', preservando o nome canonico original (ex: 'INF_B' ao inves de 'INF B') e evitado problemas de conversao indiscriminada em todos os outros exames.
+
+## 52) Fase 2 - Blindagem Local Pos-Diagnostico Read-Only
+
+Data: 2026-05-28
+Executor: Codex, com subagente explorer read-only.
+
+- Fase executada: blindagem local segura apos diagnostico read-only encerrado com `[CRITICAL_FINDING]`.
+- Motivo: projeto nao seguro para publicacao GitHub devido a `release/` materializado, bancos locais/runtime, arquivos com nomes sensiveis e `.gitignore` insuficiente.
+- Arquivos alterados: `.gitignore`, `README.md`, `docs/specs/tasks.md`, `notas_de_passagem.md`.
+- Arquivos nao alterados por seguranca: codigo-fonte funcional, `config.json`, `config/contracts/`, `tests/`, `banco/*`, `banco_runtime/*`, `banco_template/*`, `dados/*`, `release/*`, logs, reports, relatorios e bancos locais.
+- `.gitignore`: adicionada secao "INTEGRAGAL - BLINDAGEM LOCAL POS-CRITICAL_FINDING (2026-05-28)" cobrindo ambientes, caches, build, `.env*`, segredos por nome, `credentials.*`, `credenciais.*`, `usuarios.*`, configs locais/privadas, bancos, `banco/`, `banco_runtime/`, `banco_template/`, `dados/`, logs, reports, relatorios, snapshots, release materializado, `runtime_private/`, ferramentas locais e agentes.
+- README: removida ambiguidade de versionamento/publicacao de `release/runtime_private/` e seeds privados; registrado que `release/`, runtime privado, bancos, credenciais, usuarios, logs, relatorios e dados operacionais nao devem ser versionados ou publicados no GitHub.
+- `tasks.md`: `GIG-001` marcada concluida para a blindagem de `.gitignore`; criada pendencia `GIT-001` para validar tracking/ignore com Git disponivel.
+- Comandos de validacao executados: leitura dos arquivos de governanca permitidos; `git --version`, `git status --short --ignored`, `git ls-files` e `git ls-files --others --exclude-standard` foram tentados e falharam porque `git` nao esta no PATH do shell.
+- Resultado da validacao Git: `[DHP_REQUIRED]` Git nao disponivel no shell; `git check-ignore -v` nao foi executado pelo mesmo bloqueio.
+- Decisoes humanas pendentes: disponibilizar Git e validar se arquivos sensiveis ja estao rastreados; se houver rastreamento sensivel, decidir posteriormente sobre `git rm --cached` sem exclusao fisica.
+- Proibicao mantida: sem GitHub, sem commit, sem push, sem `git add`, sem remocao, sem movimentacao, sem abertura de conteudo sensivel.
+
+## 53) Validacao Git e Classificacao de Candidatos Pos-Blindagem
+
+Data: 2026-05-28
+Executor: Codex, com subagente read-only.
+
+- Fase executada: validacao Git pos-blindagem e classificacao conservadora de candidatos antes de qualquer commit.
+- Comandos Git executados: `git --version`, `git status --short --ignored`, `git ls-files`, `git ls-files --others --exclude-standard`, buscas textuais em listas Git e `git check-ignore -v`.
+- Resultado: Git disponivel (`git version 2.54.0.windows.1`); `git ls-files` nao retornou arquivos rastreados; caminhos criticos `release/`, `banco/`, `banco_runtime/`, `banco_template/`, `dados/`, `logs/`, `reports/` e `relatorios/` foram confirmados como ignorados.
+- Classificacao:
+  - `scripts/run_legacy_credentials_migration.py`: codigo-fonte operacional versionavel somente apos allowlist; nao contem segredo hardcoded observado, mas opera sobre credenciais legadas em runtime e nao deve entrar em release/publicacao sem revisao.
+  - `.snapshots/config.json`: snapshot local/artefato de ferramenta; deve permanecer ignorado.
+  - `data/state/window_state.json`: estado local de UI/runtime; deve permanecer ignorado.
+  - `test_data/*`: fixtures de teste referenciadas por testes/documentacao; versionaveis somente se confirmadas sinteticas/anonimas e sem dados pessoais, laboratoriais reais ou credenciais.
+  - `config.json`: permanece versionavel apenas como template/local runtime conforme DEC-001; nao e configuracao real de producao.
+  - `config/default_config.json`: permanece candidato versionavel como template padrao, sujeito a allowlist final junto dos demais arquivos de configuracao.
+- Arquivos alterados nesta rodada: `.gitignore`, `docs/specs/tasks.md`, `notas_de_passagem.md`.
+- Ajuste de `.gitignore`: adicionadas regras explicitas para `.snapshots/`, `.snapshots/**`, `data/state/window_state.json`, `data/state/cache/` e `data/state/backups/`.
+- Documentacao: `GIT-001` atualizado como concluido com ressalvas; criada pendencia `GIT-002` para allowlist final do primeiro commit.
+- Nao executado: `git add`, commit, push, `git rm --cached`, remocao, movimentacao, limpeza de banco, publicacao GitHub ou abertura de bancos/credenciais/usuarios.
+

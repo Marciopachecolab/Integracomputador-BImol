@@ -1,0 +1,25 @@
+# IntegraGAL - Dependências de Produção
+# Atualizado: 2026-01-08 (Auditoria Arquitetural)
+
+# Interface Gráfica
+customtkinter>=5.2.0
+
+# Processamento de Dados
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Leitura de Planilhas
+openpyxl>=3.1.0
+xlrd>=2.0.1
+
+# Visualização
+matplotlib>=3.7.0
+
+# Segurança
+bcrypt>=4.0.0
+
+# Banco de Dados (Opcional - Sistema funciona com CSV)
+psycopg2-binary>=2.9.0
+
+# Utilitários
+python-dateutil>=2.8.2

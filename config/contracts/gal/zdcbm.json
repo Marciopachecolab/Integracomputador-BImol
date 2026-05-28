@@ -1,0 +1,74 @@
+{
+  "profile_id": "zdcbm",
+  "contract_version": "1.0.0",
+  "file_name_pattern": "gal_{timestamp}_exame.csv",
+  "encoding": "utf-8",
+  "delimiter": ",",
+  "csv_schema_version": "2.0.0",
+  "csv_schema_policy": {
+    "active_version": "1.0.0",
+    "candidate_version": "2.0.0",
+    "fallback_version": "1.0.0",
+    "compatibility_mode": "dual_v1_v2",
+    "fallback_trigger": "consumer_v2_not_ready_or_contract_violation",
+    "rollback_flag": "USE_CONTRACTUAL_CSV_LEGACY_FALLBACK"
+  },
+  "export_fields": [
+    "Dengue1",
+    "Dengue2",
+    "Dengue3",
+    "Dengue4",
+    "Zika",
+    "Chikungunya"
+  ],
+  "export_field_pairs": [
+    {
+      "field": "Dengue1",
+      "ct_field": "dengue1_ct",
+      "canonical_target": "DEN1",
+      "source_result_column_candidates": ["Res_DEN1", "Res_D1"],
+      "source_ct_column_candidates": ["CT_DEN1", "CT_D1"]
+    },
+    {
+      "field": "Dengue2",
+      "ct_field": "dengue2_ct",
+      "canonical_target": "DEN2",
+      "source_result_column_candidates": ["Res_DEN2", "Res_D2"],
+      "source_ct_column_candidates": ["CT_DEN2", "CT_D2"]
+    },
+    {
+      "field": "Dengue3",
+      "ct_field": "dengue3_ct",
+      "canonical_target": "DEN3",
+      "source_result_column_candidates": ["Res_DEN3", "Res_D3"],
+      "source_ct_column_candidates": ["CT_DEN3", "CT_D3"]
+    },
+    {
+      "field": "Dengue4",
+      "ct_field": "dengue4_ct",
+      "canonical_target": "DEN4",
+      "source_result_column_candidates": ["Res_DEN4", "Res_D4"],
+      "source_ct_column_candidates": ["CT_DEN4", "CT_D4"]
+    },
+    {
+      "field": "Zika",
+      "ct_field": "zika_ct",
+      "canonical_target": "ZK",
+      "source_result_column_candidates": ["Res_ZK"],
+      "source_ct_column_candidates": ["CT_ZK"]
+    },
+    {
+      "field": "Chikungunya",
+      "ct_field": "chikungunya_ct",
+      "canonical_target": "CHIK",
+      "source_result_column_candidates": ["Res_CHIK"],
+      "source_ct_column_candidates": ["CT_CHIK"]
+    }
+  ],
+  "legacy_compatibility": {
+    "exclude_ct_targets": ["RP"],
+    "v1_profile_id": "zdcbm",
+    "fallback_profile_id": "zdcbm"
+  },
+  "panel_tests_id": "zdcbm"
+}

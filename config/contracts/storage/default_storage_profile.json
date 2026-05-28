@@ -1,0 +1,10 @@
+{
+  "profile_id": "default",
+  "contract_version": "1.0.0",
+  "encoding": "utf-8",
+  "dedupe_keys": ["corrida_id", "amostra_codigo", "lote", "data_exame"],
+  "retry_enabled": true,
+  "lock_enabled": true,
+  "append_only": true
+}
+

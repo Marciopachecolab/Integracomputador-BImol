@@ -1,0 +1,51 @@
+{
+  "equipment_id": "abi_7500",
+  "display_name": "ABI 7500 Real-Time PCR",
+  "aliases": ["7500", "7500 Real-Time"],
+  "active": false,
+  "contract_version": "1.0.0",
+  "fabricante": "Applied Biosystems",
+  "modelo": "7500 Real-Time PCR System",
+  "file_type": ["xlsx", "xls", "xlsm"],
+  "signature": {
+    "contains_columns": ["Well", "Sample Name", "Target Name"],
+    "contains_any_token": ["7500", "Applied Biosystems"]
+  },
+  "sheet_policy": {
+    "preferred_sheet": "",
+    "skip_keywords": ["extração", "extracao", "extraction"]
+  },
+  "row_policy": {
+    "header_search_max_rows": 30,
+    "data_start_offset": 1
+  },
+  "column_mapping": {
+    "well": "Well",
+    "sample": "Sample Name",
+    "target": "Target Name",
+    "ct": "Ct"
+  },
+  "ct_policy": {
+    "aliases": ["Ct", "Cq", "C(t)"],
+    "blocklist": ["Ct Mean", "Cq Mean", "Cq SD", "Cq Confidence"],
+    "null_markers": ["Undetermined", "N/A", "No Amp", "-"],
+    "decimal_separator": ","
+  },
+  "ct_like_columns": ["Ct", "Cq", "C(t)"],
+  "ct_like_blocklist": ["Ct Mean", "Cq Mean", "Cq SD", "Cq Confidence"],
+  "well_policy": {
+    "input_format": "A1",
+    "normalized_format": "A01"
+  },
+  "extractor_strategy": "indexed_table",
+  "confidence_threshold": 60,
+  "validation_rules": {
+    "required_columns": ["well", "sample", "target", "ct"],
+    "min_rows": 8
+  },
+  "audit": {
+    "updated_at": "",
+    "updated_by": "",
+    "change_reason": "legacy profile mantido apenas para rollback"
+  }
+}

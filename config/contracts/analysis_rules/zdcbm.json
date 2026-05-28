@@ -1,0 +1,18 @@
+{
+  "profile_id": "zdcbm",
+  "contract_version": "1.0.0",
+  "rules": [
+    {
+      "target": "DEFAULT_VIRAL",
+      "detect_max": 40.0,
+      "inconc_min": 38.1,
+      "inconc_max": 40.0
+    },
+    {
+      "target": "RP",
+      "valid_min": 8.1,
+      "valid_max": 35.0
+    }
+  ],
+  "status_validos": ["Valida", "Invalida (CN Detectado)", "Invalida (CP Fora do Intervalo)"]
+}

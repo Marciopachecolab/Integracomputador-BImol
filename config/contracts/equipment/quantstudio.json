@@ -1,0 +1,57 @@
+{
+  "equipment_id": "quantstudio",
+  "display_name": "QuantStudio",
+  "aliases": ["QuantStudio 5", "QuantStudio 6", "QuantStudio™ 5"],
+  "active": true,
+  "contract_version": "1.1.0",
+  "fabricante": "Thermo Fisher",
+  "modelo": "QuantStudio 5",
+  "file_type": ["xlsx", "xls", "xlsm"],
+  "signature": {
+    "contains_columns": ["Well", "Well Position", "Sample", "Target", "Cq"],
+    "contains_any_token": ["QuantStudio", "Thermo Fisher"]
+  },
+  "sheet_policy": {
+    "preferred_sheet": "Results",
+    "skip_keywords": ["extração", "extracao", "extraction"]
+  },
+  "row_policy": {
+    "header_search_max_rows": 35,
+    "data_start_offset": 1
+  },
+  "column_mapping": {
+    "well": "Well Position",
+    "sample": "Sample",
+    "target": "Target",
+    "ct": "Cq"
+  },
+  "ct_policy": {
+    "aliases": ["Cq", "CT", "C(t)", "Ct"],
+    "blocklist": ["Cq Mean", "Cq SD", "Cq Confidence", "Ct Mean"],
+    "null_markers": ["Undetermined", "N/A", "No Amp", "-"],
+    "decimal_separator": ","
+  },
+  "ct_like_columns": ["Cq", "CT", "C(t)", "Ct"],
+  "ct_like_blocklist": ["Cq Mean", "Cq SD", "Cq Confidence", "Ct Mean"],
+  "well_policy": {
+    "input_format": "A1",
+    "normalized_format": "A01"
+  },
+  "extractor_strategy": "quantstudio_table",
+  "extrator_nome": "extrair_quantstudio",
+  "coluna_well": 1,
+  "coluna_sample": 3,
+  "coluna_target": 4,
+  "coluna_ct": 12,
+  "linha_inicio": 24,
+  "confidence_threshold": 70,
+  "validation_rules": {
+    "required_columns": ["well", "sample", "target", "ct"],
+    "min_rows": 8
+  },
+  "audit": {
+    "updated_at": "",
+    "updated_by": "",
+    "change_reason": "calibrado com fixture real arquivoquantstudio.xlsx (456 linhas, header linha 24)"
+  }
+}

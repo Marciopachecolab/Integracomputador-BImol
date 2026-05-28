@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "analysis_rules_profile",
+  "type": "object",
+  "required": ["profile_id", "contract_version", "rules"],
+  "properties": {
+    "profile_id": { "type": "string" },
+    "contract_version": { "type": "string" },
+    "rules": { "type": "array", "items": { "type": "object" } },
+    "status_validos": { "type": "array", "items": { "type": "string" } }
+  }
+}
+

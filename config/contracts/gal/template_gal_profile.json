@@ -1,0 +1,14 @@
+{
+  "profile_id": "vr1e2_biomanguinhos_7500",
+  "contract_version": "1.0.0",
+  "file_name_pattern": "gal_{timestamp}_exame.csv",
+  "encoding": "utf-8",
+  "delimiter": ",",
+  "panel_tests_id": "1",
+  "export_fields": [
+    "Amostra",
+    "Resultado_geral",
+    "Status_Placa"
+  ]
+}
+

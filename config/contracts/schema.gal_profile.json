@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gal_profile",
+  "type": "object",
+  "required": [
+    "profile_id",
+    "contract_version",
+    "file_name_pattern",
+    "encoding",
+    "export_fields"
+  ],
+  "properties": {
+    "profile_id": { "type": "string" },
+    "contract_version": { "type": "string" },
+    "file_name_pattern": { "type": "string" },
+    "encoding": { "type": "string" },
+    "delimiter": { "type": "string" },
+    "export_fields": { "type": "array", "items": { "type": "string" } },
+    "panel_tests_id": { "type": "string" },
+    "csv_schema_version": { "type": "string" },
+    "csv_schema_policy": { "type": "object" },
+    "export_field_pairs": { "type": "array", "items": { "type": "object" } },
+    "legacy_compatibility": { "type": "object" }
+  }
+}

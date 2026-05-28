@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "equipment_profile",
+  "type": "object",
+  "required": [
+    "equipment_id",
+    "display_name",
+    "aliases",
+    "active",
+    "contract_version",
+    "fabricante",
+    "modelo",
+    "file_type",
+    "signature",
+    "sheet_policy",
+    "row_policy",
+    "column_mapping",
+    "ct_policy",
+    "well_policy",
+    "extractor_strategy",
+    "confidence_threshold",
+    "validation_rules",
+    "audit"
+  ],
+  "properties": {
+    "equipment_id": { "type": "string" },
+    "display_name": { "type": "string" },
+    "aliases": { "type": "array", "items": { "type": "string" } },
+    "active": { "type": "boolean" },
+    "contract_version": { "type": "string" },
+    "fabricante": { "type": "string" },
+    "modelo": { "type": "string" },
+    "file_type": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "signature": { "type": "object" },
+    "sheet_policy": { "type": "object" },
+    "row_policy": { "type": "object" },
+    "column_mapping": { "type": "object" },
+    "ct_policy": { "type": "object" },
+    "well_policy": { "type": "object" },
+    "extractor_strategy": { "type": "string" },
+    "confidence_threshold": { "type": "number" },
+    "validation_rules": { "type": "object" },
+    "audit": { "type": "object" }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "equipment_id": "7500_extended",
+  "display_name": "7500_Extended",
+  "aliases": ["7500 Extended"],
+  "active": true,
+  "contract_version": "1.0.0",
+  "fabricante": "Applied Biosystems",
+  "modelo": "7500 Real-Time PCR System (Extended)",
+  "file_type": ["xlsx", "xls", "xlsm"],
+  "signature": {
+    "contains_columns": ["Well", "Sample Name", "Target Name", "Cт"],
+    "contains_any_token": ["7500", "Applied Biosystems", "sds7500"]
+  },
+  "sheet_policy": {
+    "preferred_sheet": "",
+    "skip_keywords": ["extração", "extracao", "extraction"]
+  },
+  "row_policy": {
+    "header_search_max_rows": 30,
+    "data_start_offset": 1
+  },
+  "column_mapping": {
+    "well": "Well",
+    "sample": "Sample Name",
+    "target": "Target Name",
+    "ct": "Cт"
+  },
+  "ct_policy": {
+    "aliases": ["Cт", "Ct", "Cq", "C(t)"],
+    "blocklist": ["Ct Mean", "Cq Mean", "Cq SD", "Cq Confidence"],
+    "null_markers": ["Undetermined", "N/A", "No Amp", "-"],
+    "decimal_separator": ","
+  },
+  "ct_like_columns": ["Cт", "Ct", "Cq", "C(t)"],
+  "ct_like_blocklist": ["Ct Mean", "Cq Mean", "Cq SD", "Cq Confidence"],
+  "well_policy": {
+    "input_format": "A1",
+    "normalized_format": "A01"
+  },
+  "extractor_strategy": "indexed_table",
+  "extrator_nome": "extrair_7500_extended",
+  "coluna_well": 0,
+  "coluna_sample": 1,
+  "coluna_target": 2,
+  "coluna_ct": 6,
+  "linha_inicio": 9,
+  "confidence_threshold": 70,
+  "validation_rules": {
+    "required_columns": ["well", "sample", "target", "ct"],
+    "min_rows": 8
+  },
+  "audit": {
+    "updated_at": "",
+    "updated_by": "",
+    "change_reason": ""
+  }
+}

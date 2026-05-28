@@ -1,0 +1,157 @@
+{
+  "_comentario": "Configurações padrão do sistema IntegRAGal",
+  "_versao": "1.0.0",
+  "feature_flags": {
+    "ui_single_window": true
+  },
+  "ui_single_window": true,
+  "aparencia": {
+    "tema": "dark",
+    "cor_tema": "blue",
+    "tamanho_fonte": 13,
+    "fonte_padrao": "Segoe UI",
+    "escala_interface": 1.0,
+    "transparencia_janela": 1.0,
+    "animacoes_habilitadas": true,
+    "som_notificacoes": false
+  },
+  "paths": {
+    "log_file": "logs/sistema.log",
+    "exams_catalog_csv": "banco/exames_config.csv",
+    "credentials_csv": "banco/usuarios.csv",
+    "gal_history_csv": "dados/banco/historico_analises.csv",
+    "gal_upload_history_csv": "logs/total_importados_gal.csv",
+    "default_csv_folder": "data/inputs",
+    "default_results_folder": "reports",
+    "users_csv": "banco/usuarios.csv",
+    "processing_history_csv": "logs/historico_processos.csv",
+    "logs_dir": "dados/banco"
+  },
+  "alertas": {
+    "habilitar_alertas": true,
+    "tipos_habilitados": {
+      "ct_alto": true,
+      "ct_baixo": true,
+      "placa_nao_mapeada": true,
+      "amostra_invalida": true,
+      "erro_extracao": true,
+      "aviso_qualidade": true,
+      "info_sistema": true,
+      "operacao_sucesso": true,
+      "erro_critico": true
+    },
+    "limites_ct": {
+      "ct_alto_limite": 35.0,
+      "ct_baixo_limite": 15.0
+    },
+    "notificacoes": {
+      "mostrar_popup": true,
+      "som_notificacao": false,
+      "duracao_popup_segundos": 5,
+      "posicao_popup": "top-right"
+    },
+    "badge": {
+      "mostrar_badge": true,
+      "cor_badge": "#FF3B30",
+      "piscar_badge": true
+    }
+  },
+  "exportacao": {
+    "formato_padrao": "pdf",
+    "incluir_graficos": true,
+    "incluir_estatisticas": true,
+    "incluir_alertas": true,
+    "incluir_timestamp": true,
+    "diretorio_padrao": "reports",
+    "nome_arquivo_padrao": "relatorio_{data}_{hora}",
+    "sobrescrever_existentes": false,
+    "comprimir_arquivos": false,
+    "qualidade_imagem": 95,
+    "dpi_graficos": 300,
+    "orientacao_pdf": "portrait"
+  },
+  "extracao": {
+    "equipamento_padrao": "QuantStudio 5",
+    "auto_detectar_equipamento": true,
+    "validar_placas": true,
+    "permitir_placas_nao_mapeadas": false,
+    "extrair_metadata": true,
+    "formato_data": "DD/MM/YYYY",
+    "formato_hora": "HH:mm:ss",
+    "separador_csv": ",",
+    "encoding_padrao": "utf-8"
+  },
+  "analise": {
+    "aplicar_regras_automaticamente": true,
+    "verificar_qualidade": true,
+    "gerar_graficos_automaticos": true,
+    "calcular_estatisticas": true,
+    "detectar_outliers": true,
+    "metodo_outliers": "iqr",
+    "limite_outliers_iqr": 1.5,
+    "mostrar_avisos_qualidade": true,
+    "validacao_estrita": false
+  },
+  "gal_integration": {
+    "base_url": "https://galteste.saude.sc.gov.br"
+  },
+  "gal": {
+    "enviar_automaticamente": false,
+    "validar_antes_envio": true,
+    "tentar_reconectar": true,
+    "timeout_conexao_segundos": 30,
+    "max_tentativas": 3,
+    "intervalo_entre_tentativas_segundos": 5,
+    "salvar_log_envios": true,
+    "confirmar_antes_envio": true
+  },
+  "sessao": {
+    "salvar_estado_automaticamente": true,
+    "restaurar_sessao_anterior": true,
+    "intervalo_autosave_minutos": 5,
+    "manter_historico_dias": 30,
+    "max_sessoes_salvas": 10,
+    "salvar_posicao_janela": true,
+    "salvar_abas_abertas": true
+  },
+  "avancado": {
+    "modo_debug": false,
+    "nivel_log": "INFO",
+    "mostrar_informacoes_tecnicas": false,
+    "habilitar_cache": true,
+    "tamanho_cache_mb": 100,
+    "limpar_cache_ao_fechar": false,
+    "verificar_atualizacoes": true,
+    "coletar_metricas_uso": false,
+    "max_threads": 4,
+    "timeout_operacoes_segundos": 60
+  },
+  "atalhos": {
+    "abrir_dashboard": "Ctrl+D",
+    "nova_analise": "Ctrl+N",
+    "exportar_relatorio": "Ctrl+E",
+    "abrir_configuracoes": "Ctrl+,",
+    "centro_notificacoes": "Ctrl+Shift+N",
+    "historico": "Ctrl+H",
+    "ajuda": "F1",
+    "sair": "Ctrl+Q"
+  },
+  "performance": {
+    "max_alertas_memoria": 1000,
+    "limpar_alertas_antigos_dias": 7,
+    "comprimir_logs_antigos": true,
+    "max_tamanho_log_mb": 50,
+    "rotacionar_logs": true,
+    "otimizar_memoria": true,
+    "usar_cache_dataframes": true
+  },
+  "contracts": {
+    "source_of_truth": "contracts",
+    "hierarchy": [
+      "contracts",
+      "config_exams",
+      "config_json",
+      "csv"
+    ]
+  }
+}

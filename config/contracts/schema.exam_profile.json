@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "exam_profile",
+  "type": "object",
+  "required": [
+    "exam_id",
+    "nome_exame",
+    "slug",
+    "contract_version",
+    "equipment_id",
+    "targets",
+    "ct_thresholds",
+    "analysis_rules_profile_id",
+    "gal_profile_id",
+    "storage_profile_id"
+  ],
+  "properties": {
+    "exam_id": { "type": "string" },
+    "nome_exame": { "type": "string" },
+    "slug": { "type": "string" },
+    "contract_version": { "type": "string" },
+    "equipment_id": { "type": "string" },
+    "targets": { "type": "array", "items": { "type": "string" } },
+    "target_aliases": { "type": "object" },
+    "ct_thresholds": { "type": "object" },
+    "rp_targets": { "type": "array", "items": { "type": "string" } },
+    "pocos_por_amostra": { "type": "integer" },
+    "targets_por_poco": { "type": "array", "items": { "type": "object" } },
+    "limiares_ct_por_alvo_poco": { "type": "array", "items": { "type": "object" } },
+    "analysis_rules_profile_id": { "type": "string" },
+    "gal_profile_id": { "type": "string" },
+    "storage_profile_id": { "type": "string" },
+    "panel_tests_id": { "type": "string" },
+    "source_of_truth": { "type": "string" },
+    "export_contract_profile_id": { "type": "string" },
+    "parity_contract_mode": { "type": "string" }
+  }
+}

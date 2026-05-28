@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "storage_profile",
+  "type": "object",
+  "required": [
+    "profile_id",
+    "contract_version",
+    "encoding",
+    "dedupe_keys",
+    "retry_enabled",
+    "lock_enabled"
+  ],
+  "properties": {
+    "profile_id": { "type": "string" },
+    "contract_version": { "type": "string" },
+    "encoding": { "type": "string" },
+    "dedupe_keys": { "type": "array", "items": { "type": "string" } },
+    "retry_enabled": { "type": "boolean" },
+    "lock_enabled": { "type": "boolean" },
+    "append_only": { "type": "boolean" }
+  }
+}
+

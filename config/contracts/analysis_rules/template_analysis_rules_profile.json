@@ -1,0 +1,24 @@
+{
+  "profile_id": "vr1e2_biomanguinhos_7500",
+  "contract_version": "1.0.0",
+  "rules": [
+    {
+      "target": "DEFAULT_VIRAL",
+      "detect_max": 38.0,
+      "inconc_min": 38.01,
+      "inconc_max": 40.0
+    },
+    {
+      "target": "RP",
+      "valid_min": 15.0,
+      "valid_max": 35.0
+    }
+  ],
+  "status_validos": [
+    "Valida",
+    "Invalida (CN Detectado)",
+    "Invalida (CP Fora do Intervalo)",
+    "Invalida (Controles Ausentes)"
+  ]
+}
+
