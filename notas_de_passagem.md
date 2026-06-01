@@ -1390,3 +1390,42 @@ fallback de analitos no submit dependia de config GAL.
 
 ### Nao executado
 Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
+
+---
+
+## Sessao 2026-06-01 — Audit Refactoring Fase 1 (Guardioes SDD Ausentes) — CONCLUIDA
+
+- T-010, T-011, T-012 executadas. **3 commits** na branch `refactor/audit-refactoring`
+  (74c2ae9, f7f9256, 2701ac1).
+- **5 guardioes Fase 0+1 verdes** (6 itens pytest): csv_safety (2), no_hardcoded,
+  dominio_imports_puros, auth_legacy_user_manager, agents_claude_md_sha_match.
+- **T-AUD-008** e **T-AUD-004A** agora tem fisico correspondente a declaracao SDD
+  (estavam "Concluido" em CLAUDE.md sec.10/15.1 com artefato ausente).
+
+### Detalhe por tarefa
+- **T-010** (AC-3.1): `tests/test_dominio_imports_puros.py` — AST scan de imports
+  proibidos em `domain/` (pandas/selenium/tkinter/etc), allowlist vazia. 1 passed.
+- **T-011** (AC-3.2): `tests/test_auth_legacy_user_manager_no_runtime_imports.py` —
+  AST scan de `core.authentication.user_manager` nos RUNTIME_ROOTS, allowlist vazia
+  (DEC-003). Zero callers runtime confirmado (unica mencao em auth_service.py:14 e
+  docstring, nao import). 1 passed.
+- **T-012** (AC-3.3, AC-16.1): `tests/test_agents_claude_md_sha_match.py` — hash
+  sha256 AGENTS.md == CLAUDE.md. **Sincronizacao previa NAO necessaria**: ja estavam
+  byte-identicos (sha 5ed3ade3); por isso 3 commits e nao 4. 1 passed.
+
+### Achados extras (nao bloqueantes)
+- **[BOM-DOMAIN]** 3 modulos de `domain/` tem BOM UTF-8 (U+FEFF):
+  `__init__.py`, `ct_rules.py`, `plate_mapping.py`. O skeleton de T-010 usava
+  `read_text(encoding="utf-8")` e quebrava em `ast.parse`. Mitigado no guardiao com
+  `utf-8-sig` (mesmo padrao aplicado em T-011). Remocao fisica do BOM dos modulos de
+  producao NAO feita (fora de escopo); candidata a rodada de housekeeping futura
+  (correlato T-AUD-014).
+
+### Nao executado
+- NAO tocado `core/authentication/user_manager.py` (credencial T-AUD-017).
+- NAO investigado import circular `envio_gal:84` (T-AUD-016, Fase 2).
+- Sem alteracao de arquivos de producao (`application/`, `services/`, `ui/`,
+  `exportacao/`, `autenticacao/`) nem de `docs/specs/tasks.md`.
+
+### Proxima rodada
+- Fase 2 (forensics revert envio_gal 2026-05-23 — T-020..T-022). Aguardando autorizacao.
