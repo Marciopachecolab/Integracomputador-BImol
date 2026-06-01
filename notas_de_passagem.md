@@ -1,5 +1,147 @@
 # Notas de Passagem
 
+---
+
+## Sessao 2026-05-30 — Dashboard analitico, filtros, detalhe de corrida e correcoes de UI
+Executor: Claude Code (Opus 4.8)
+
+### Escopo implementado (rodada autorizada de codigo/UI)
+- **DASH-003** — `obter_estatisticas_gestao` conta apenas colunas canonicas `RES_*` (ignora `SRC_RES_*` e controles `RP|CN|CP|GERAL`): elimina a duplicacao "RES X"+"SRC RES X" no quadro "Doencas Mais Positivas", corrige a Positividade e limpa rotulos (`limpar_nome_alvo`). Top 5 → Top 12.
+- **DASH-004** — Gestao Clinica: barra (Top 10 + rotulos) + radar + pizza (Top 8 + "Outros") numa unica `Figure`, tabela-resumo lateral (Alvo/Positivos/%) e rotulos em negrito.
+- **DASH-005** — Nova aba "Visao Analitica": `obter_painel_analitico` (KPIs Volume 15d/Volume-dia/Positividade/Pendentes GAL; heatmap dia x doenca; tabela de Ct 15/7/3 dias com setas ▲▼➖ e % de variacao; `positividade_por_alvo`). Clique num alvo destaca no heatmap + tabela (`_selecionar_alvo`). Fontes da aba ampliadas (+100%). Pendentes GAL = status reconciliado != `enviado`/`duplicado` (`_contar_pendentes_gal`).
+- **DASH-006** — Barra de filtros reutilizavel (`_criar_barra_filtros`) nas abas Operacional (filtra cards/grafico/tabela via `_df_operacional`/`_janela_filtro`) e Visao Analitica (somente Exame).
+- **DASH-007** — Detalhe da corrida: coluna "Corrida" (`nome_corrida`); janela de resultados read-only corrigida (bug `from ui.theme.design_tokens import CORES, FONTES` — modulo nao expoe esses nomes; agora usa `CORES`/`FONTES` de `.estilos`); colunas limpas (Amostra/Poco/Resultado/Status + `Res`/`Ct` por alvo). Botao "Abrir Mapa Definitivo (Excel)" abre o `mapa_placa_*.xlsx` real em `<data_root>/mapas` via `_localizar_mapa_definitivo` (match normalizado por `nome_corrida`/arquivo origem; 17/17 corridas localizadas no teste).
+- **DASH-008** — Tabela "Corridas Recentes": caixa de busca lateral desativada; barra de rolagem reancorada no mesmo container; ordenacao por clique no cabecalho (1o asc, 2o desc; `Data/Hora` cronologico).
+- **DASH-FIX-001** — `CardResumo.set_valor`/`set_indicativo` (corrige cards de Gestao zerados por `AttributeError` silencioso); Gestao/Visao Analitica atualizam do SQLite independentemente do CSV.
+- **CFG-UI-001** — `tela_configuracoes._carregar_categoria` chama `_carregar_valores()`; corrige switch "Ocultar navegador durante envio" exibido OFF apesar do default `headless=true`.
+- **WIZ-UI-001** — Passo 1 do wizard em grade compacta (cabe sem rolagem; botao "Editar Exame Selecionado" volta a aparecer) + botao "Limpar Etapa" (`clear_current_step`).
+- **CAL-UI-001** — `SimpleCalendar(date_format=...)`; botoes de calendario nos campos De/Ate da Gestao.
+
+### Verificacao
+- Validacao headless: analytics (KPIs/heatmap/ct_table sem rotulos `SRC`/`RES`), construcao da janela read-only, locator de mapa (17/17), ordenacao da tabela (asc/desc), cards `set_valor/set_indicativo`.
+- `python -m pytest tests/ -k "analytics or dashboard or relatorio or estatistic"` → 1 passed; import smoke OK. Sem novas dependencias.
+
+### Ponto de rollback
+- `git` indisponivel no ambiente (PATH). Criado backup timestampado `_rollback_20260530_100900/` com o estado anterior dos 6 arquivos tocados (UI). Artefato transitorio — candidato a `.gitignore`/remocao em rodada de higiene (nao remover sem decisao).
+
+### Documentos atualizados nesta sessao
+- `docs/specs/design.md` — §3.8 (Dashboard 3 abas) reescrita e §14.2 adicionada.
+- `docs/specs/tasks.md` — §11.3: DASH-003..008, DASH-FIX-001, CFG-UI-001, WIZ-UI-001, CAL-UI-001.
+- `docs/specs/requirements.md` — CA-16 (dedup/leitura SQLite das analiticas) e CA-17 (detalhe read-only + Mapa Definitivo).
+- `CLAUDE.md` e `AGENTS.md` — §16 atualizado com as tarefas concluidas (nao repetir).
+- `notas_de_passagem.md` — esta entrada.
+
+### Revisao de estrutura
+- `_rollback_20260530_100900/` presente na raiz (ver acima). Nenhum `_diag_*.py` temporario remanescente (removidos apos uso). Diretorio canonico de mapas confirmado: `<data_root>/mapas` (`dados/mapas`, 49 arquivos).
+
+---
+
+## Sessao 2026-05-29 — Uniformizacao de paths de logs e dados operacionais
+Executor: Claude Code (Sonnet 4.6)
+
+### Escopo implementado
+
+**LOG-UNIF-001 — Uniformizacao de locais de gravacao de logs**
+- Bug corrigido: `config/default_config.json` tinha `logs_dir = "dados/banco"` (diretorio de dados legados). Corrigido para `"logs"`.
+- `utils/audit_logger.py`: `AuditLogger.__init__` aceita `None` e usa `_resolve_audit_log_dir()` via config service.
+- `services/legacy_panel_governance.py`: `DEFAULT_LOG_PATH` substituido por `_resolve_default_log_path()` com prioridade: env var → config service → fallback.
+- `utils/dataframe_reporter.py`: `DataFrameReporter.__init__` aceita `None` e usa `_resolve_dataframe_log_dir()` via config service.
+- Teste-guardiao criado: `tests/test_log_paths_uniformization.py` (9 casos, 9 passed).
+
+**LOG-UNIF-002 — Uniformizacao de fallbacks de pastas de dados**
+- `services/path_resolver.py:34`: fallback de `resolve_banco_dir()` alterado de `banco/` para `banco_runtime/`.
+- `services/engine/config_loader.py:14`: `ConfigLoader.BASE_PATH` alterado de `Path("banco")` para `Path("banco_template")`. `get_equipment_profiles()` agora encontra os JSONs reais.
+- `scripts/normalize_legacy_csv_utf8.py` e `scripts/scan_csv_encoding_conformance.py`: `DEFAULT_ROOTS` ampliado para incluir `banco_runtime`.
+- Migracao de dados: `corridas_vr1e2_biomanguinhos_7500.csv` (296KB) e `corridas_zdc_biomanguinhos.csv` (42KB) movidos de `dados/banco/` para `logs/`. Backup em `snapshots/dados_banco_backup_20260529/`.
+- `historico_analises.csv` (280KB) ja estava em `logs/` apos correcao do `logs_dir`.
+- Teste-guardiao criado: `tests/test_banco_path_fallbacks.py` (7 casos, 7 passed).
+- Suite completa: 55 testes, zero regressoes.
+
+### DHPs abertas nesta sessao
+- **DHP-10**: `dados/banco/historico.db` (131KB, 25/05/2026, mais antigo) — inspecionar antes de excluir.
+- **DHP-11**: CSVs duplicados residuais em `dados/banco/` (equipamentos, exames, placas, regras, usuarios) — decidir destino.
+- **DHP-12**: `banco_template/historico.db` (3.3MB, maior que o ativo de 1.5MB em banco_runtime/) — conteudo desconhecido; inspecionar antes de qualquer decisao.
+
+### Documentos atualizados nesta sessao
+- `docs/specs/tasks.md` — adicionados LOG-UNIF-001, LOG-UNIF-002, DHP-10, DHP-11, DHP-12 e rastreabilidade.
+- `docs/specs/design.md` — adicionados §3.10 (arquitetura de paths) e §13 (atualizacoes 2026-05-29); §10 atualizado com novas DHPs.
+- `CLAUDE.md` e `AGENTS.md` — atualizados §10, §11, §13 e §16.
+- `notas_de_passagem.md` — esta entrada.
+
+### Arquivos criados
+- `tests/test_log_paths_uniformization.py`
+- `tests/test_banco_path_fallbacks.py`
+- `snapshots/dados_banco_backup_20260529/` (backup dos corridas CSVs antes de mover)
+
+### Arquivos modificados (codigo)
+- `config/default_config.json` (logs_dir corrigido)
+- `utils/audit_logger.py` (config-driven)
+- `utils/dataframe_reporter.py` (config-driven)
+- `services/legacy_panel_governance.py` (config-driven)
+- `services/path_resolver.py` (fallback banco_runtime)
+- `services/engine/config_loader.py` (BASE_PATH banco_template)
+- `scripts/normalize_legacy_csv_utf8.py` (DEFAULT_ROOTS)
+- `scripts/scan_csv_encoding_conformance.py` (DEFAULT_ROOTS)
+
+### Arquivos movidos (dados)
+- `dados/banco/corridas_vr1e2_biomanguinhos_7500.csv` → `logs/` (296KB)
+- `dados/banco/corridas_zdc_biomanguinhos.csv` → `logs/` (42KB)
+
+---
+
+## Sessao 2026-05-30 — GAL Robustez/UX/Dashboard + correcao de paths (CONFIG-PATH-001)
+Executor: Claude Code (Opus 4.8)
+
+### Escopo implementado
+
+**Robustez e correcao de bugs GAL (GAL-ROB-001..010):**
+- S4: worker exception → registro estruturado `erro_critico` (nao mais `print()`).
+- S2: metadados vazios nao abortam o lote; amostras recebem `nao_encontrado`.
+- S5: falhas de paginas de metadados acumuladas e reportadas explicitamente.
+- S10: CSV validado antes de abrir o Firefox (falha cedo).
+- S11: aviso antecipado de `gal_exame_codigo` ausente.
+- S14: mascaramento de campos identificaveis na resposta do servidor antes de logar.
+- S22: `inflight_keys` atomicas sob lock para prevenir envio duplo de linhas identicas no mesmo CSV.
+- S23: normalizacao de datas (DD/MM→ISO) simetrica no reconciliador GAL.
+- S24: `validate_gal_payload` valida nao-vazio de `codigo`.
+- GAL-ROB-010: fallback por `codigo_amostra` no reconciliador quando `kit`/`lote` ausentes.
+
+**Features e toggles (GAL-FEAT-001..005 + GAL-PERF-001):**
+- `USE_GAL_ENVIO_SEM_METADADOS`: pula `/lista/`, usa `codigoAmostra` direto. Toggle em Configuracoes GAL.
+- `construir_payload`: `codigo` usa `codigoAmostra` como fallback quando `meta` vazio.
+- Firefox headless por default (`gal_integration.headless: true`). Toggle em Configuracoes GAL.
+- Terminal exibe linha por amostra (`codigoAmostra → STATUS`). Rollback: `USE_GAL_TERMINAL_LOG_POR_AMOSTRA=false`.
+- Secao "Comportamento do Envio" adicionada nas Configuracoes GAL.
+- Janela de metadados: 365 → 15 dias.
+
+**Dashboard e relatorios (DASH-001..002):**
+- Dashboard principal: fonte primaria agora e `ExamRunsSQLiteRepository` (`historico.db`) com status GAL.
+- Gestao Clinica: campos De/Ate + botao Filtrar adicionados.
+
+**CONFIG-PATH-001 (rodada autorizada):**
+- `config.json` `paths.logs_dir`: `"dados/banco"` → `"logs"` (elimina pasta `dados/dados/`).
+- `config.json` `paths.gal_history_csv` e `paths.gal_upload_history_csv`: `"logs/total_importados_gal.csv"` → `"logs/historico_analises.csv"`.
+- `config/default_config.json` alinhado com os mesmos valores.
+
+### Pendencias abertas desta sessao
+- **GAL-PEND-001**: S3/S6 — retry com classificacao de erro transitorio vs definitivo em `enviar_amostra()`. Requer validacao de idempotencia do endpoint `/gravar/`.
+- **GAL-PEND-002**: S18 — suite de testes sem Selenium real para o modulo GAL.
+- **MEDIA-3 residual**: `GAL_PAYLOAD_REQUIRED_FIELDS` lista `requisicao`/`paciente` como `required` no schema JSON, mas no modo sem metadados eles sao intencionalmente vazios. Schema nao foi versionado. Risco: suites futuras com `jsonschema` formal reprovariam payloads sem metadados. Registrar CA em `requirements.md` em rodada futura.
+- **BAIXA-1 residual**: campo `_raw` populado antes do mascaramento; dados de resposta de erro podem persistir no journal. Baixo risco operacional atual.
+
+### Regressao
+- 77 testes preexistentes passaram (zero regressoes). Sem novos guardioes especificos para GAL-ROB/FEAT — GAL-PEND-002 registra essa pendencia.
+
+### Documentos atualizados nesta sessao
+- `docs/specs/tasks.md` — §11 adicionado; tabela INST-001/002/003 corrigida para Concluido.
+- `docs/specs/design.md` — §3.5 reescrito; §3.8 atualizado.
+- `CLAUDE.md` e `AGENTS.md` — §16 atualizado com novas tarefas e INST-001/002/003 movidos para concluidas.
+- `config.json` — 3 paths corrigidos (rodada autorizada).
+- `config/default_config.json` — paths alinhados com config.json.
+- `notas_de_passagem.md` — esta entrada.
+
+---
+
 Data: 2026-05-11  
 Executor: Codex (orquestracao estilo maestro + execucao incremental com TDD)
 
@@ -1118,3 +1260,103 @@ Executor: Codex, com subagente read-only.
 - Documentacao: `GIT-001` atualizado como concluido com ressalvas; criada pendencia `GIT-002` para allowlist final do primeiro commit.
 - Nao executado: `git add`, commit, push, `git rm --cached`, remocao, movimentacao, limpeza de banco, publicacao GitHub ou abertura de bancos/credenciais/usuarios.
 
+
+## 2026-05-28 - Atualizacao do Kit GAL para VR1eVR2 BioManguinhos
+Alteracao do kit_codigo de 427 para 1125 no arquivo config\exams\vr1e2_biomanguinhos_7500.json conforme solicitacao do usuario. A alteracao foi avaliada pelo antigravity-skill-orchestrator como sendo de complexidade simples e, portanto, executada diretamente.
+
+---
+
+## Sessao 2026-05-29 - [CRITICAL_FINDING] Envio GAL falhava com "0 metadados encontrados"
+Executor: Claude Code (Opus 4.8)
+
+### Sintoma
+Envio GAL de 2026-05-29 abortou: "Busca de metadados finalizada: 0 encontrados" -> "ERRO CRITICO: Nenhum metadado encontrado". O envio de 2026-05-28 16:01 funcionara (45 encontrados).
+
+### Causa raiz
+O exame VR1e2 foi reeditado/salvo pelo wizard de cadastro em 2026-05-28 21:58 (comentario "Cadastro via wizard V2 compat mode"). A regravacao de config/exams/vr1e2_biomanguinhos_7500.json REMOVEU gal_exame_codigo ("VRSRT") e trocou panel_tests_id de "1" para o protocol_id "12". Com gal_exame_codigo vazio, exportacao/envio_gal.buscar_metadados nao envia codExame e o filtro local de validacao (linhas 633-649) descarta todas as amostras. As mudancas de path LOG-UNIF-001/002 NAO foram a causa.
+
+Dois bugs de codigo confirmados no fluxo de save:
+- ui/modules/cadastros_ui.py::RegistryExamEditor._exam_to_dict nao serializava gal_exame_codigo (campo perdido em todo save).
+- ui/modules/exam_creator/wizard.py::_build_registry_exam_config gravava panel_tests_id=protocol_id e nunca preservava o valor existente nem o gal_exame_codigo.
+
+### Correcao aplicada (autorizada pelo usuario)
+- Perfis restaurados (valores informados pelo usuario):
+  - VR1e2: gal_exame_codigo="VRSRT", panel_tests_id="1".
+  - ZDC BioManguinhos: gal_exame_codigo="PEQZDC", panel_tests_id="".
+- wizard._build_registry_exam_config agora preserva gal_exame_codigo e panel_tests_id do registry ao reeditar exame existente; exame novo mantem comportamento legado (panel_tests_id=protocol_id, gal vazio).
+- _exam_to_dict passa a serializar gal_exame_codigo.
+- Teste guardiao: tests/test_exam_creator_preserva_gal_codigo.py (3 passed). Suite tests/ completa: 51 passed.
+
+### Nao executado
+Sem alteracao de config.json, sem commit/push, sem abertura de credenciais. Valor original de gal_exame_codigo evidenciado em release/app/config/exams/vr1e2_biomanguinhos_7500.json (VRSRT).
+
+---
+
+## Sessao 2026-05-29 (cont.) - Correcao panel_tests_id VR1e2 + regra de poco vazio
+Executor: Claude Code (Opus 4.8)
+
+### Ajuste 1: panel_tests_id do VR1e2
+Usuario corrigiu: VR1e2 panel_tests_id correto = "12" (nao "1"). config/exams/vr1e2_biomanguinhos_7500.json agora tem gal_exame_codigo="VRSRT", panel_tests_id="12". (ZDC permanece gal_exame_codigo="PEQZDC", panel_tests_id="".)
+
+### Ajuste 2: poco vazio = Invalido (todos os exames)
+Decisao do usuario: poco vazio (codigo da amostra em branco, apenas "X" ou iniciando com "Vazio...") deve ser classificado como Invalido, para todos os exames.
+- Regra de dominio unica: domain/resultado_geral.py::is_amostra_vazia (branco, "X", prefixo "VAZIO", "NAN"/"NONE"). calcular_resultado_geral ganhou parametro amostra_vazia (prioridade maxima -> Invalido).
+- Aplicada no ponto vivo do pipeline: services/analysis/analysis_service.py::_apply_resultado_geral_vectorized — pocos vazios viram Invalido (sobrepondo qualquer classificacao) e sao desmarcados (Selecionado=False), logo nao seguem para envio GAL.
+- O pipeline ja rotulava pocos sem anotacao como "Vazio_<poco>" (linha ~1193); a nova regra fecha o ciclo classificando-os.
+- Modulo legado analise/vr1e2_biomanguinhos_7500.py nao tem chamador vivo (orquestracao usa AnalysisService); nao alterado.
+
+### Testes
+- tests/test_poco_vazio_invalido.py (novo): is_amostra_vazia, calcular_resultado_geral(amostra_vazia=True) e _apply_resultado_geral_vectorized (poco vazio -> Invalido + desmarcado mesmo com RP valido).
+- tests/test_exam_creator_preserva_gal_codigo.py mantido.
+- Suite tests/ completa: 69 passed.
+
+### Nao executado
+Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
+
+---
+
+## Sessao 2026-05-30 - Wizard de criacao de exames: campos GAL + equipamento + fallback painel
+Executor: Claude Code (Sonnet 4.6)
+
+### Escopo (plano agora-avalie-o-wizard-calm-pretzel.md)
+Wizard incompleto para envio GAL: sem captura de gal_exame_codigo, kit_codigo,
+panel_tests_id, export_fields; equipamento/tipo_placa fixos em "7500"/"96";
+fallback de analitos no submit dependia de config GAL.
+
+### Mudancas implementadas
+
+#### ui/modules/exam_creator/wizard.py
+- Passo 1: campos equipamento (CTkComboBox, options de config/contracts/equipment/* ativos) e
+  tipo_placa_analitica (96/48/36). Helper _load_equipment_options carrega equipment_ids ativos.
+- Passo 3: btn_next mudou de "Salvar" para "Proximo >".
+- Novo Passo 4 "Integracao GAL": gal_exame_codigo, kit_codigo, panel_tests_id e tabela de
+  mapeamento alvo -> nome_no_GAL (export_fields). Aviso nao bloqueante se campos vazios.
+- _collect_gal_from_step4: coleta e atualiza exam_data.
+- _build_export_mapping_from_cfg (estatico): reconstroi {alvo: nome_gal} de ExamConfig existente.
+- _build_registry_exam_config: usa todos os campos capturados em vez de fixos; _pick/_pick_list
+  para fallback de edicao (novo=capturado, edicao=capturado ou preservado do registry).
+- _apply_registry_exam_to_wizard: popula equipamento, tipo_placa, gal_exame_codigo, kit,
+  panel_tests_id, export_fields e export_mapping ao editar exame existente.
+- next_step/prev_step: fluxo 1->2->3->4->Salvar; voltar 4->3.
+
+#### exportacao/envio_gal.py
+- _norm_gal_field: normaliza nome de campo GAL (lower, sem acentos/separadores).
+- construir_payload: fallback testes_do_painel a partir de exam_cfg.export_fields quando
+  o painel nao esta em panel_tests; exames com panel na config GAL nao sao afetados.
+
+#### ui/modules/cadastros_ui.py
+- validate_exam: avisos nao bloqueantes (log WARNING) quando gal_exame_codigo/kit/export_fields
+  vazios; save prossegue normalmente.
+
+### Testes
+- tests/test_exam_creator_campos_gal.py (novo, 8 testes):
+  _build_registry_exam_config reflete campos GAL; _build_export_mapping_from_cfg;
+  _norm_gal_field; fallback de painel em construir_payload; painel existente nao afetado;
+  gal_formatter usa kit/painel/analitos do exame; round-trip _exam_to_dict.
+- tests/test_exam_creator_preserva_gal_codigo.py: test_wizard_exame_novo atualizado para
+  comportamento correto (panel_tests_id vazio se Passo 4 nao preenchido).
+- test_initial_setup_e2e: falha pre-existente de ambiente Tk/Python313 (anterior a esta sessao).
+- Suite: 77 testes, 1 falha pre-existente de ambiente sem relacao com as mudancas.
+
+### Nao executado
+Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
