@@ -2,6 +2,36 @@
 
 ---
 
+## Sessao 2026-06-01 — Audit Refactoring Fase 0 (Emergencia)
+Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
+
+### [CRITICAL_FINDING] Import circular pre-existente envio_gal <-> ui (severidade ALTO)
+- **Arquivo/linha:** `exportacao/envio_gal.py:84` (`from ui.gal_ui_dialog_adapter import GalUIDialogAdapter`, top-level) <-> `ui/__init__.py:11` (import eager de `main_window`) <-> `ui/menu_handler.py:16` (`from exportacao.envio_gal import abrir_janela_envio_gal`).
+- **Sintoma:** `import exportacao.envio_gal` falha com `ImportError: cannot import name 'abrir_janela_envio_gal' ... partially initialized module` quando `envio_gal` e o primeiro modulo a tocar `ui`.
+- **Impacto real:** o app inicializa normalmente via `python main.py` (que importa `ui` primeiro — `main.py:16`); o ciclo so quebra sob ordem de import nao-ui-first (como o comando literal do T-002). NAO e regressao do csv_safety (restaurado identico ao HEAD) — esta presente no HEAD baseline `f28ce1e`.
+- **Evidencia:** ordem `import ui; import exportacao.envio_gal` -> OK; ordem `8 callers; envio_gal` -> ImportError. T-002 re-evidenciado verde com ordem ui-first (`all-ok`).
+- **Governanca:** FORA do escopo da Fase 0; tocar `envio_gal.py`/`ui` arrisca tags GAL-ROB-* e sobrepoe a forense da Fase 2 (T-021/T-022 examinam `envio_gal.py`, incidente 2026-05-23) e o T-061 (Fase 6, integra `assert_valid_gal_payload` em `envio_gal.enviar_amostra`). Divergencia realidade<->SDD nao listada em `spec.md §8.3`.
+- **Recomendacao:** avaliar import lazy de `GalUIDialogAdapter` (dentro da funcao consumidora) durante a Fase 2/6, com cobertura previa. Decisao humana: registrada na sessao (usuario optou por re-evidenciar T-002 com ordem sa e seguir Fase 0).
+
+### [FINDING] Credencial hardcoded em modulo legado (severidade ALTO, follow-up)
+- **Arquivo/linha:** `core/authentication/user_manager.py:~1811` (`password="admin123456"`).
+- **Contexto:** modulo LEGADO em deprecacao controlada (DT-003 / DEC-003), neutralizado e import-banido (guardiao T-AUD-004A). NAO e runtime; remocao fisica exige DEC futura.
+- **Tratamento:** fora do escopo da Fase 0. O guardiao T-006 (`tests/test_no_hardcoded_credentials.py`) exclui `core/` deliberadamente e documenta este achado. Tratar em rodada futura (correlato a US-3/DEC-003).
+
+### Fase 0 (Emergencia) — CONCLUIDA
+- **T-000** [BLOCK] backup pre-refator: `snapshots/pre_audit_refactor_20260531/` (21.759 arquivos) + `_manifest_sha256.csv` (21.759 hashes, 0 falhas). Sem commit (`snapshots/` e gitignored).
+- **T-001** [BLOCK] `utils/csv_safety.py` restaurado de `HEAD` (byte-identico; deleção era working-tree nao-commitada). `from utils.csv_safety import sanitize_csv_value` -> OK. Sem commit (realinhou ao HEAD).
+- **T-002** [BLOCK] 10 callers de csv_safety importam sob ordem real de boot (ui-first): `all-ok`. Sem commit (validacao). Ver [CRITICAL_FINDING] import circular acima.
+- **T-003** [P] guardiao `tests/test_no_broken_csv_safety_imports.py` (AST, BOM-tolerante) -> 2 passed. Commit `4f4c705`.
+- **T-004** [P][DHP] `revert_info.txt` -> `docs/obsoletos/incidents/revert_envio_gal_20260523.txt` + README de advertencia (prompt injection). DHP aprovada. Commit `315b403`.
+- **T-005** [P][DHP] `test_login.py` DELETADO (senha '123456' hardcoded, API async errada). DHP=(A). Commit `61b76fb`.
+- **T-006** [P] guardiao `tests/test_no_hardcoded_credentials.py` (AST) -> 1 passed. Commit `e0e0069`.
+- **Branch:** `refactor/audit-refactoring` (criada a partir de `main`).
+- **Verificacao final:** AC-1.1 OK; 3 guardioes passed; raiz sem `test_login.py`/`revert_info.txt`.
+- **Proxima rodada:** Fase 1 (T-010 T-AUD-008 dominio puro; T-011 T-AUD-004A legacy auth; T-012 AGENTS==CLAUDE hash). NAO iniciada — aguarda autorizacao.
+
+---
+
 ## Sessao 2026-05-30 — Dashboard analitico, filtros, detalhe de corrida e correcoes de UI
 Executor: Claude Code (Opus 4.8)
 
