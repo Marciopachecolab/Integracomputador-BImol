@@ -1,0 +1,103 @@
+Created At: 2026-05-23T05:06:41Z
+Completed At: 2026-05-23T05:07:08Z
+The following changes were made by the multi_replace_file_content tool to: c:\Users\marci\Downloads\Integragal - Backup - 20260128_151811\exportacao\envio_gal.py. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -33,778 +33,336 @@
+ import sys
+ import threading
+ import time
+-from datetime import datetime
+-from functools import wraps
+-from pathlib import Path
+-from tkinter import messagebox
+-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+-
+-import customtkinter as ctk
+-import pandas as pd
+-import simplejson as json
+-from application.gal_send_use_case import GalSendRequest, GalSendUseCase
+-from application.gal_ui_input_adapter import (
+-    GalUIInputAdapter,
+-    GalUIInputState,
+-)
+-from services.config_service import config_service
+-from services.csv_contracts import get_csv_contract
+-from services.csv_io import read_csv_strict, write_csv_atomic
+-from services.exam_registry import get_exam_cfg
+-from utils.csv_lock import CSVFileLock
+-from utils.csv_safety import sanitize_csv_value
+-from utils.io_utils import read_data_with_auto_detection
+-from utils.logger import registrar_log
+-from utils.privacy import mask_patient_name
+-from utils.gui_utils import safe_destroy_ctk_toplevel
+-from utils.network_io import (
+-    RetryPolicy,
+-    call_with_retry,
+-    open_with_retry,
+-    path_exists_with_retry,
+-)
+-from services.relatorio_csv import build_relatorio_rows, write_relatorio_csv
+-from services.final_run_report import upsert_final_report_with_send_results
+-from services.full_run_status_sync import reconcile_send_status_across_artifacts
+-from services.runtime_flags import (
+-    is_contractual_csv_legacy_fallback_enabled,
+-    is_gal_hardened_login_enabled,
+-    is_legacy_gal_success_ledger_enabled,
+-)
+-from exportacao.gal_exceptions import (
+-    GalLoginElementNotFound,
+-    GalLoginNotConfirmed,
+-    GalPay
+<truncated 43306 bytes>
+ttpRequest"},
+-            timeout=self.timeout,
+-        )
+-
+-        try:
+-            data = resp.json()
+-        except json.JSONDecodeError:
+-            return f"Resposta inválida do servidor (HTTP {resp.status_code})"
+-
+-        ok_status = data.get("status") == "sucesso"
+-        ok_success = data.get("success") is True
+-
+-        if resp.status_code == 200 and (ok_status or ok_success):
+-            return None
+-
+-        motivo = (
+-            data.get("errorMsg")
+-            or data.get("message")
+-            or data.get("mensagem")
+-            or data.get("error")
+-            or data.get("erro")
+-            or f"Erro desconhecido (HTTP {resp.status_code})"
+-        )
+-        return motivo
+-
+-    def _enviar_payload_completo(
+-        self, driver: WebDriver, payload: Dict
+-    ) -> Tuple[bool, Any]:
+-        """
+-        Envia o payload completo para o GAL.
+-        Compatível com a lógica dos scripts antigos, que verificavam `success == True`
+-        na resposta JSON do endpoint de gravação.
+-        """
+-        url = self.base_url + self.endpoints.get("submit")
+-        resp = driver.request(
+-            "POST",
+-            url,
+-            data={"exame": json.dumps(payload, ensure_ascii=False)},
+-            headers={"X-Requested-With": "XMLHttpRequest"},
+-            timeout=self.timeout,
+-        )
+-        # Não chamamos raise_for_status aqui para poder inspecionar a resposta mesmo em HTTP 4xx/5xx
+-        try:
+-            data = resp.json()
+         except json.JSONDecodeError:
+             # devolvemos também o corpo bruto para inspeção em log
+             return False, {
+[diff_block_end]
+
+Please note that the above snippet only shows the MODIFIED lines from the last change. It shows up to 3 lines of unchanged lines before and after the modified lines. The actual file contents may have many more lines not shown.
+
+We did our best to apply changes despite some inaccuracies. Double check if the edit applied is what you intended.
