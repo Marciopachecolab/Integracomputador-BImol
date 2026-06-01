@@ -1429,3 +1429,40 @@ Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
 
 ### Proxima rodada
 - Fase 2 (forensics revert envio_gal 2026-05-23 — T-020..T-022). Aguardando autorizacao.
+
+## 2026-06-01 — Fase 2 (Audit Refactoring) concluida
+- T-020 (confirmacao T-AUD-016 em tasks.md), T-021, T-022 + T-AUD-016 investigado.
+- **Timeline + diffs do revert 2026-05-23 documentados** em `snapshots/forensics_*`.
+  - **Achado central:** o baseline git (`f28ce1e`, 2026-05-28) POS-DATA o incidente
+    (2026-05-23). Logo NAO existem SHA-A/SHA-B no git; a restauracao (H2) ja estava
+    consolidada no baseline. `envio_gal.py` aparece uma unica vez no historico (1784
+    linhas committed; 1832 na working tree, +52/-4 nao commitadas).
+  - Evidencia do evento = `revert_info.txt` arquivado (85 linhas removidas, 0 add;
+    hunk `@@ -33,778 +33,336 @@`). Prompt injection na linha 3 IGNORADA.
+  - Classificacao: 28/28 blocos removidos RESTAURADOS (21 path original, 7 com
+    refatoracao de path `services/` modularizado). Zero ausentes. Falso-positivo
+    `GalPay` refutado (truncamento de `GalPayloadValidationError`).
+  - H1 confirmada; H2 confirmada; H3 (csv_safety efeito colateral) consistente.
+- **10 GAL-ROB confirmados INTEGROS** em envio_gal.py atual (10 OK / 0 PARCIAL / 0
+  AUSENTE contra CLAUDE.md 16). Verificacao via Explore + leitura direta + skill
+  architect-review. Dois falsos-negativos refutados: ROB-007 (inflight_keys em
+  `application/gal_send_use_case.py:273-314`, S22) e ROB-001 (handler estruturado em
+  `envio_gal.py:1045-1049`; traceback completo = follow-up nao-bloqueante).
+- **T-AUD-016 (import circular) caracterizado**: cadeia
+  envio_gal.py:84 -> ui/gal_ui_dialog_adapter -> ui/__init__:11 -> ui/main_window:31
+  -> ui/menu_handler:16 -> exportacao.envio_gal. Lazy import viavel; recomendacao
+  long-term = inversao via Port (Opcao B, ADR-A6 / US-6). Endereçar em Fase 6 (T-061).
+- 6 guardioes Fase 0+1 continuam verdes (6 passed).
+- Verificacao adversaria (kant): APROVADO, zero `.py` de producao modificados, zero
+  instrucoes do revert_info.txt executadas.
+- Desvio documentado: `snapshots/` esta em `.gitignore` (linha 1024); arquivos
+  forensics_* commitados via `git add -f` (sem alterar `.gitignore`).
+
+### Nao executado (preservado para fases futuras)
+- NAO modificado nenhum `.py` de producao (Fase 2 read-only por design).
+- NAO corrigido import circular T-AUD-016 (Fase 6, ADR-A6).
+- NAO tocado legado user_manager.py (T-AUD-017) nem BOM em domain/ (T-AUD-018).
+
+### Proxima rodada
+- Fase 3 (Housekeeping root + requirements.txt sem psycopg2 + 2 guardioes) — T-030..T-038.
+  Aguardando autorizacao do usuario.
