@@ -984,3 +984,58 @@ def atualizar_status_gal(
 
 # Sobrescreve funcao legacy por compatibilidade
 gerar_historico_csv = _gerar_historico_csv_compat
+
+
+def salvar_historico_processamento(
+    analista: str, exame: str, status: str, detalhes: str
+) -> None:
+    """Salva um registro de processamento no historico CSV compartilhado.
+
+    Fonte canonica (T-065, Fase 6) — migrada de db.db_utils. Grava em
+    logs/historico_processos.csv usando CSVFileLock para atomicidade em
+    ambiente de rede. O caminho do CSV vem de config_service.get_paths()
+    ('processing_history_csv'), com fallback para o padrao em logs/.
+
+    Apenas o caminho CSV (unico ativo) foi migrado; o bloco PostgreSQL
+    legado de db.db_utils era codigo morto (get_postgres_connection
+    sempre retorna None) e NAO foi portado.
+
+    Assinatura identica a db.db_utils.salvar_historico_processamento para
+    permitir substituicao direta nos callers.
+    """
+    try:
+        paths = config_service.get_paths()
+        csv_path = Path(
+            paths.get("processing_history_csv", "logs/historico_processos.csv")
+        )
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+        fieldnames = ['data_hora', 'analista', 'exame', 'status', 'detalhes']
+        policy = RetryPolicy.from_env()
+
+        with CSVFileLock(csv_path) as _lock:
+            file_exists = path_exists_with_retry(csv_path, policy=policy)
+            with open_with_retry(
+                csv_path, 'a', newline='', encoding='utf-8', policy=policy
+            ) as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=';')
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow({
+                    'data_hora': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'analista': sanitize_csv_value(analista),
+                    'exame': sanitize_csv_value(exame),
+                    'status': sanitize_csv_value(status),
+                    'detalhes': sanitize_csv_value(detalhes),
+                })
+        registrar_log(
+            "History Report",
+            f"Historico de processamento salvo em CSV: {csv_path}",
+            "INFO",
+        )
+    except Exception as exc:  # noqa: BLE001
+        registrar_log(
+            "History Report",
+            f"Falha critica ao salvar historico de processamento: {exc}",
+            "CRITICAL",
+        )
