@@ -18,8 +18,5 @@ matplotlib>=3.7.0
 # Segurança
 bcrypt>=4.0.0
 
-# Banco de Dados (Opcional - Sistema funciona com CSV)
-psycopg2-binary>=2.9.0
-
 # Utilitários
 python-dateutil>=2.8.2
