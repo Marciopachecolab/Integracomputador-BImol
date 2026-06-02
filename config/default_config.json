@@ -17,13 +17,13 @@
   },
   "paths": {
     "log_file": "logs/sistema.log",
-    "exams_catalog_csv": "banco/exames_config.csv",
-    "credentials_csv": "banco/usuarios.csv",
+    "exams_catalog_csv": "banco_runtime/exames_config.csv",
+    "credentials_csv": "banco_runtime/usuarios.csv",
     "gal_history_csv": "logs/historico_analises.csv",
     "gal_upload_history_csv": "logs/historico_analises.csv",
     "default_csv_folder": "data/inputs",
     "default_results_folder": "reports",
-    "users_csv": "banco/usuarios.csv",
+    "users_csv": "banco_runtime/usuarios.csv",
     "processing_history_csv": "logs/historico_processos.csv",
     "logs_dir": "logs"
   },

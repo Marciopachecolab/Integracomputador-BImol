@@ -1,0 +1,116 @@
+{
+  "nome_exame": "eef2e",
+  "slug": "d2ed2",
+  "equipamento": "7500_extended",
+  "tipo_placa_analitica": "96",
+  "esquema_agrupamento": "96->48",
+  "kit_codigo": "111",
+  "alvos": [
+    "rrrrrr",
+    "tttttt",
+    "rp",
+    "eeeeeeeeeee"
+  ],
+  "mapa_alvos": {
+    "rrrrrr": "rrrrrr",
+    "tttttt": "tttttt",
+    "rp": "rp",
+    "eeeeeeeeeee": "eeeeeeeeeee"
+  },
+  "faixas_ct": {
+    "detect_max": 35.0,
+    "inconc_min": 35.01,
+    "inconc_max": 40.0,
+    "rp_min": 10.0,
+    "rp_max": 35.0
+  },
+  "rps": [
+    "rp"
+  ],
+  "export_fields": [
+    "rrrrrr",
+    "tttttt",
+    "rp",
+    "eeeeeeeeeee"
+  ],
+  "panel_tests_id": "",
+  "gal_exame_codigo": "WWSSS",
+  "controles": {
+    "cn": [],
+    "cp": [
+      "rp"
+    ]
+  },
+  "comentarios": "Cadastro via wizard V2 compat mode",
+  "versao_protocolo": "1.0",
+  "pocos_por_amostra": 2,
+  "targets_por_poco": [
+    {
+      "alvo": "rrrrrr",
+      "filtro": "VIC",
+      "poco": 1,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "tttttt",
+      "filtro": "ROX",
+      "poco": 1,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "ROX",
+      "poco": 1,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "FAM",
+      "poco": 2,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "eeeeeeeeeee",
+      "filtro": "NED",
+      "poco": 2,
+      "tipo": "VIRAL"
+    }
+  ],
+  "limiares_ct_por_alvo_poco": [
+    {
+      "alvo": "rrrrrr",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "tttttt",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "eeeeeeeeeee",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    }
+  ]
+}
