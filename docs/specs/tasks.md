@@ -291,6 +291,25 @@ sem distinguir motivo. A divergência é apenas na apresentação.
 de bloqueio) e avaliar aposentar o throttle client-side em favor do lockout
 server-side. Endereçar em rodada UI/Fase 9 (hardening), com teste-guardião.
 
+### T-AUD-023 (BUG/L-T12) — login.py vaza 'N tentativas restantes' (OWASP A07 UI)
+
+**Descoberta:** Fase 5 Audit Refactoring (T-051, achado pos-impl)
+**Severidade:** ALTO (viola DHP politica-senha-lockout recém-aprovada)
+**Status:** [x] Fix imediato — mini-tarefa Fase 5 fechamento
+**Origem:** DHP politica-senha-lockout especifica mensagem UI
+genérica (OWASP A07). Serviço cumpre (sempre retorna None em falha),
+MAS autenticacao/login.py:193-197,200-203 ainda exibe:
+- "Credenciais invalidas. {N} tentativa(s) restante(s)."
+- "Numero maximo de tentativas excedido!"
+Ambas vazam informação: contador revela quantas tentativas restam;
+mensagem "excedido" revela que conta foi bloqueada.
+**Fix:** unificar TODAS as mensagens em
+"Credenciais inválidas. Verifique usuário e senha." (mesma do
+serviço). Manter sys.exit(1) ao esgotar contador local (UX), mas
+sem mensagem específica de "excedido".
+**Endereçar:** AGORA (mini-tarefa T-AUD-023 antes da Fase 6).
+**Nota:** formaliza/supersede o achado preliminar `T-051-FIND-UIMSG` acima.
+
 ### T-AUD-024 (DT/L-T13) — SQLiteUserRepositoryAdapter.update não persiste lockout
 
 **Descoberta:** Fase 5 Audit Refactoring (T-051, review inline)
