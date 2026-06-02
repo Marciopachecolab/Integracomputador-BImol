@@ -1605,3 +1605,41 @@ Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
   `reports/` -> `/reports/`) e versionar o pacote; (b) escolher outro modulo (rastreado)
   como destino canonico; (c) force-add pontual. NENHUMA acao tomada sem autorizacao.
 - Nada foi forcado para dentro do git; .gitignore NAO alterado.
+
+## 2026-06-02 — Fase 6: 6.C concluida + 6.D plano corrigido (checkpoint)
+
+### 6.C concluida (commits)
+- fix(gitignore) + baseline services/reports (62b2a48): ancorou 'reports/' -> '/reports/'
+  (2 ocorrencias) e versionou o pacote de codigo services/reports/ (8 modulos antes ignorados).
+- feat(T-065) af7d6d9: salvar_historico_processamento em services.reports.history_report (CSV-only).
+- refactor(T-066) dc3c7ed: 2 callers reais migrados (utils/gui_utils, ui/janela_analise_completa).
+  Lista de "4 callers" do plano estava desatualizada: dashboard.py importa obter_historico_analises
+  e consolidate_history.py importa get_postgres_connection (funcoes diferentes, fora do escopo).
+- test(T-067) 16d9042: guardiao tests/test_utils_no_db_imports.py (1 passed).
+
+### Verificacao kant (6.A+B+C): "Sem regressoes bloqueantes". Ressalvas nao-bloqueantes:
+- R1 (medio): T-064 propaga falha critica; config.settings set(salvar_agora=True)/reset()
+  chamam self.salvar() sem try. Caller UI _aplicar_configuracoes JA esta envolto em
+  @safe_operation(fallback_value=False), entao a excecao e capturada/logada/exibida 1 nivel acima.
+  Recomendacao (futuro, fora de escopo): auditar demais callers de set/reset antes de producao.
+- R2 (baixo): T-065 mantem except->log CRITICAL e engole (fail-open), fiel ao original db_utils;
+  difere da politica fail-closed de T-064 (intencional — historico nao deve abortar analise).
+
+### Achado secundario (nao tocado)
+- root ./relatorios/ tambem e pacote de codigo (__init__.py, gerar_relatorios.py) misturado com
+  saidas (PDF/xlsx), ignorado por regra 'relatorios/'. NAO corrigido (fora do escopo 6.C; root,
+  exigiria separar codigo de saida). Registrar como GIG-002 futuro.
+
+### 6.D — plano CORRIGIDO (estrutura real != plano)
+cadastros_ui.py (4326 L) NAO tem 4 classes editor standalone. Tem 3 classes:
+- CadastrosDiversosWindow (86-2013): infra compartilhada (86-267) + 4 grupos de metodos-aba
+  (exames 268-621, equipamentos 622-1305, placas 1306-1649, regras 1650-2013), todos usando self.
+- ExamFormDialog (2014-3384, ~1370 L) e RegistryExamEditor (3385-4326, ~941 L): dialogos de exame.
+Estrategia de split recomendada = MIXINS (nao extracao de classe):
+- cadastros_exames.py: ExamesTabMixin + ExamFormDialog + RegistryExamEditor
+- cadastros_equipamentos.py: EquipamentosTabMixin
+- cadastros_placas.py: PlacasTabMixin
+- cadastros_regras.py: RegrasTabMixin
+- cadastros_ui.py (facade ~250 L): imports + CadastrosDiversosWindow(ExamesTabMixin, ...) com infra.
+T-068 (smoke Tk) viavel: Tk disponivel (conftest:109-110 cria root real); rodar pytest
+em invocacao UNICA (T-AUD-021). 6.D pendente de retomada (recomendado /clear / sessao nova).
