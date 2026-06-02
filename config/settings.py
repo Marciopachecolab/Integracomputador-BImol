@@ -179,7 +179,7 @@ class ConfigurationManager:
             _config_service.save()
         return changed
     
-    @safe_operation(fallback_value=True, context="Salvando configuracoes")
+    @safe_operation(context="Salvando configuracoes", propagate_critical=True)
     def salvar(self, fazer_backup: bool = True) -> bool:
         """
         Salva configuracoes atuais do usuario no config.json via ConfigService.
@@ -231,7 +231,7 @@ class ConfigurationManager:
         
         return diferencas
     
-    @safe_operation(fallback_value=True, context="Criando backup")
+    @safe_operation(context="Criando backup", propagate_critical=True)
     def _criar_backup(self) -> bool:
         """Cria backup do config.json."""
         self.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
