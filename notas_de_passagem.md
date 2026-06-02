@@ -2,6 +2,23 @@
 
 ---
 
+## 2026-06-02 — Fase 4 (Audit Refactoring) concluída
+Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
+
+- **T-040, T-041, T-042, T-043, T-044, T-045** executadas (6 commits: `20e3e35`, `2e4fbc0`, `640d57b`, `6781b14`, `10515bc`, `db40fb7`).
+- **5 guardiões import-ban novos** (AST/regex, REPO_ROOT relativo): `analise`, `extracao`, `scratch`, `sql` (import-ban de pastas órfãs; 0 callers confirmados por 4 subagentes Explore) + `scripts_no_hardcoded_paths`.
+- **6 scripts refatorados** (paths absolutos → relativos; sintaxe validada via py_compile / parse mínimo, SEM execução):
+  - `check_bom.py` → `Path(__file__).resolve().parent.parent`
+  - `limpeza_logs_reports.ps1`, `limpeza_prioridade_alta.ps1`, `organizar_documentacao.ps1` → `(Resolve-Path "$PSScriptRoot/..").Path`
+  - `run_daily_parity_snapshot.cmd` → `pushd %~dp0.. / set ProjectRoot=%CD% / popd` (force-add: `.gitignore:404 **/*.cmd`; DHP commit-cmd aprovado "Force-add só este .cmd")
+  - `run_all_tests.ps1` → ativação condicional de `.venv` do repo (antes `C:/Users/marci/Desktop/venv`; DHP Q2 aprovado opção A)
+- **13 guardiões totais verdes** (Fases 0+1+3+4): 13 passed. Verificação adversária independente (kant) sem achados bloqueantes.
+- **ZERO `.py` de runtime modificado**; pastas órfãs (`analise/ extracao/ scratch/ sql/ db/`) intactas (arquivamento físico fica para Fase 7 — DHP-13).
+- **[PENDÊNCIA] DHP Q1 (Fase 4, opção A):** `scripts/generate_phase0_baseline.py:41,44` referencia fixtures `.xlsx` de laboratório em `Downloads\18 JULHO 2025\` (dados FORA do repo, não-relativizáveis). NÃO refatorado; guardião T-044 deliberadamente restrito ao padrão `Downloads/Integragal` para não bloquear esse script dev. Tratar em rodada futura dedicada (parametrizar via CLI/env quando houver decisão).
+- **Próxima rodada:** Fase 5 (Lockout server-side de autenticação — T-050..T-053). PRÉ-REQUISITO: DHP "política de senha" (limite N tentativas, duração bloqueio, recuperação, exigências mínimas) ANTES de implementar. NÃO iniciada — aguarda autorização.
+
+---
+
 ## Sessao 2026-06-01 — Audit Refactoring Fase 0 (Emergencia)
 Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
 
