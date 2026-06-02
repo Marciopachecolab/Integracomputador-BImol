@@ -13,9 +13,24 @@ from typing import Any, Dict, Iterable, Optional
 from utils.csv_lock import CSVFileLock
 from utils.network_io import RetryPolicy, open_with_retry
 
-DEFAULT_LOG_PATH = Path("logs/legacy_panel_rollout.csv")
 DEFAULT_REPORT_PATH = Path("snapshots/legacy_panel_exit_report.json")
 DEFAULT_CRITERIA_PATH = Path("config/legacy_panel_exit_criteria.json")
+
+
+def _resolve_default_log_path() -> Path:
+    """Resolve o path do log de governança via config service, com fallback seguro."""
+    env_path = os.getenv("INTEGRAGAL_LEGACY_PANEL_GOV_LOG_PATH")
+    if env_path:
+        return Path(env_path)
+    try:
+        from services.core.config_service import config_service
+        paths = config_service.get_paths()
+        logs_dir = paths.get("logs_dir")
+        if logs_dir:
+            return Path(logs_dir) / "legacy_panel_rollout.csv"
+    except Exception:
+        pass
+    return Path("logs/legacy_panel_rollout.csv")
 
 
 @dataclass(frozen=True)
@@ -50,12 +65,9 @@ def _now_utc() -> datetime:
 
 
 def _resolve_log_path(path: Optional[Path] = None) -> Path:
-    env_path = os.getenv("INTEGRAGAL_LEGACY_PANEL_GOV_LOG_PATH")
     if path is not None:
         return path
-    if env_path:
-        return Path(env_path)
-    return DEFAULT_LOG_PATH
+    return _resolve_default_log_path()
 
 
 def _resolve_report_path(path: Optional[Path] = None) -> Path:

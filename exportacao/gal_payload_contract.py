@@ -76,4 +76,17 @@ def validate_gal_payload(payload: Dict[str, Any]) -> List[str]:
     if "registroInterno" in payload and not registro:
         errors.append("campo 'registroInterno' vazio")
 
+    # S24: Validar não-vazio de codigo.
+    # codigo = codigoAmostra (sempre disponível no CSV) — nunca deve ser vazio.
+    # requisicao e paciente são omitidos desta validação: no modo
+    # USE_GAL_ENVIO_SEM_METADADOS eles são intencionalmente vazios para que o
+    # GAL os localize pelo par codigo+gal_exame_codigo. O endpoint retornará
+    # erro claro ("já liberado", "não existe", etc.) se o registro não for
+    # encontrado, sem necessidade de validação local antecipada.
+    if "codigo" in payload and not str(payload.get("codigo", "") or "").strip():
+        errors.append(
+            "campo 'codigo' vazio — deve ser igual ao codigoAmostra do CSV "
+            "(verifique construir_payload)"
+        )
+
     return errors

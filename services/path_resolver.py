@@ -31,7 +31,7 @@ def resolve_banco_dir() -> Path:
             return Path(exams_catalog).parent
         except Exception:
             pass
-    return Path(BASE_DIR) / "banco"
+    return Path(BASE_DIR) / "banco_runtime"
 
 
 def resolve_users_csv_path() -> Path:

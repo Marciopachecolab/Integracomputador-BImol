@@ -19,13 +19,13 @@
     "log_file": "logs/sistema.log",
     "exams_catalog_csv": "banco/exames_config.csv",
     "credentials_csv": "banco/usuarios.csv",
-    "gal_history_csv": "dados/banco/historico_analises.csv",
-    "gal_upload_history_csv": "logs/total_importados_gal.csv",
+    "gal_history_csv": "logs/historico_analises.csv",
+    "gal_upload_history_csv": "logs/historico_analises.csv",
     "default_csv_folder": "data/inputs",
     "default_results_folder": "reports",
     "users_csv": "banco/usuarios.csv",
     "processing_history_csv": "logs/historico_processos.csv",
-    "logs_dir": "dados/banco"
+    "logs_dir": "logs"
   },
   "alertas": {
     "habilitar_alertas": true,
@@ -93,7 +93,9 @@
     "validacao_estrita": false
   },
   "gal_integration": {
-    "base_url": "https://galteste.saude.sc.gov.br"
+    "base_url": "https://galteste.saude.sc.gov.br",
+    "headless": true,
+    "envio_sem_metadados": false
   },
   "gal": {
     "enviar_automaticamente": false,

@@ -75,6 +75,28 @@ class CardResumo(ctk.CTkFrame):
         self.valor = novo_valor
         self.label_valor.configure(text=novo_valor)
 
+    # Aliases usados pelo dashboard (aba Gestao Clinica).
+    def set_valor(self, novo_valor: str):
+        self.atualizar_valor(novo_valor)
+
+    def set_indicativo(self, texto: str):
+        """Atualiza o subtexto/indicativo do card.
+
+        Cria o label de indicativo sob demanda quando o card foi criado sem ele.
+        """
+        self.indicativo_texto = texto
+        label = getattr(self, "label_indicativo", None)
+        if label is not None:
+            label.configure(text=texto)
+            return
+        self.label_indicativo = ctk.CTkLabel(
+            self,
+            text=texto,
+            font=Theme.get_font_primary(size=11, weight="bold"),
+            text_color=self.indicativo_cor,
+        )
+        self.label_indicativo.pack(anchor="w", padx=20, pady=(5, 20))
+
 
 # Função auxiliar para criar cards rapidamente
 def criar_card_estatistica(

@@ -13,6 +13,7 @@ Formato: JSON estruturado para fácil análise/parsing
 """
 
 import json
+import os
 import socket
 import platform
 from datetime import datetime
@@ -22,14 +23,29 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 
+def _resolve_audit_log_dir() -> str:
+    """Resolve o diretório de auditoria via config service, com fallback seguro."""
+    try:
+        from services.core.config_service import config_service
+        paths = config_service.get_paths()
+        logs_dir = paths.get("logs_dir")
+        if logs_dir:
+            return os.path.join(logs_dir, "audit")
+    except Exception:
+        pass
+    return "logs/audit"
+
+
 class AuditLogger:
     """
     Logger de auditoria para rastreamento de ações de usuários.
-    
+
     Thread-safe e com rotação automática de arquivos.
     """
-    
-    def __init__(self, log_dir: str = "logs/audit"):
+
+    def __init__(self, log_dir: str | None = None):
+        if log_dir is None:
+            log_dir = _resolve_audit_log_dir()
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         

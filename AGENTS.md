@@ -130,6 +130,8 @@ Testes guardioes e pendencias registradas (T-AUD em `tasks.md`):
 - T-AUD-014: **Concluido** - correcao pontual de encoding/parsing em `ui/user_management.py` por `U+FEFF`; removido apenas BOM UTF-8 inicial e teste B2 afetado passou.
 - SDD-20260514-001/002/003: **Concluidos** - relatorio final pre-GAL, completude VR1e2 placa cheia e normalizacao de extrator contratual documentados em `tasks.md`.
 - UI-AUD-002: **Concluido** - `Reaplicar Selecao` usa aptidao operacional estrita; inventario UI completo continua pendente em UI-AUD-001.
+- LOG-UNIF-001: **Concluido** - uniformizacao de locais de gravacao de logs para `logs/`; bug `logs_dir = "dados/banco"` corrigido; `AuditLogger`, `DataFrameReporter` e `legacy_panel_governance` passaram a usar config service; guardiao `tests/test_log_paths_uniformization.py` (9 passed).
+- LOG-UNIF-002: **Concluido** - fallback de `resolve_banco_dir()` corrigido para `banco_runtime/`; `ConfigLoader.BASE_PATH` corrigido para `banco_template/`; `DEFAULT_ROOTS` dos scripts inclui `banco_runtime`; corridas CSVs migradas de `dados/banco/` para `logs/`; guardiao `tests/test_banco_path_fallbacks.py` (7 passed).
 
 ## 11. Suites recomendadas
 
@@ -139,6 +141,8 @@ python -m pytest tests/test_analysis_service_phase6_vectorization.py tests/test_
 python -m pytest tests/test_extraction_plate_mapping_use_case.py tests/test_mapeamento_extracao_caracterizacao_h04.py -q --tb=short
 python -m pytest tests/test_0260325_exam_creator_registry_rollout.py tests/test_shared_storage_standardization.py -q --tb=short
 python -m pytest tests/test_t14_gal_idempotency_revalidation.py tests/test_extraction_caracterizacao_t14.py -q --tb=short
+# Guardioes de uniformizacao de paths (LOG-UNIF-001/002):
+python -m pytest tests/test_log_paths_uniformization.py tests/test_banco_path_fallbacks.py -q --tb=short
 ```
 
 ## 12. Decisoes arquiteturais canonicas (pos-T06)
@@ -177,9 +181,11 @@ Conforme `tasks.md §10` e `requirements.md §10`.
 
 ### 15.2 Pendentes - nao implementar sem resolucao
 
-Nenhuma DHP pendente.
+- **DHP-10** (2026-05-29): verificar conteudo de `dados/banco/historico.db` (131KB, 25/05/2026, mais antigo dos 4) antes de exclusao ou arquivamento. Pode ser DB inicial vazio ou snapshot. Nao excluir sem inspecao humana. Ver PRIV-001.
+- **DHP-11** (2026-05-29): decidir destino dos CSVs duplicados residuais em `dados/banco/` apos migracao das corridas (`equipamentos.csv`, `exames_config.csv`, `placas.csv`, `regras.csv`, `usuarios.csv` — todos desatualizados). Conteudo de `usuarios.csv` nao deve ser aberto sem ambiente controlado.
+- **DHP-12** (2026-05-29): verificar conteudo de `banco_template/historico.db` (3.3MB, maior que o ativo de 1.5MB em `banco_runtime/`). Suspeito — pode ser dados de desenvolvimento ou snapshot salvo erroneamente. Inspecionar antes de qualquer decisao.
 
-Total pendente apos DEC-002: 0 decisoes humanas.
+Total pendente: 3 decisoes humanas (DHP-10, DHP-11, DHP-12).
 
 ## 16. Tarefas e lacunas priorizadas
 
@@ -200,6 +206,21 @@ Tarefas concluidas abaixo **nao devem ser repetidas** por agentes:
 - **UI-AUD-002** - concluida: regra estrita de `Reaplicar Selecao`.
 - **HIG-005** - concluida documentalmente (Opcao A, 2026-05-15): `banco/*` mantido fisicamente em dev/runtime; conteudo sensivel nao aberto; manifest HIG-008 exclui do release; nenhum arquivo aberto, movido, arquivado ou excluido. DEC-002 resolvida. Nao repetir.
 - **REL-004** - concluida (2026-05-17): `scripts/build_release_whitelist.ps1` criado com whitelist HIG-008, modo simulacao por padrao (sem `-Execute`), validacoes de seguranca e validacao pos-copia. O script NAO foi executado; `release/` NAO foi criada. Nao recriar o script sem rodada especifica autorizada.
+- **LOG-UNIF-001** - concluida (2026-05-29): uniformizacao de locais de gravacao de logs para root unico `logs/`. Bug corrigido em `config/default_config.json` (`logs_dir = "dados/banco"` → `"logs"`). Componentes `AuditLogger`, `DataFrameReporter` e `_resolve_default_log_path()` passaram a consultar config service. Guardiao: `tests/test_log_paths_uniformization.py` (9 passed). Nao repetir.
+- **LOG-UNIF-002** - concluida (2026-05-29): uniformizacao de fallbacks de pastas de dados. `path_resolver.resolve_banco_dir()` cai em `banco_runtime/` (antes `banco/`). `ConfigLoader.BASE_PATH` = `banco_template/` (antes `banco/`). `DEFAULT_ROOTS` dos scripts inclui `banco_runtime`. Corridas CSVs migradas de `dados/banco/` para `logs/`. Guardiao: `tests/test_banco_path_fallbacks.py` (7 passed). Nao repetir.
+- **WIZ-GAL-01..07** - concluidas (2026-05-30): wizard de criacao de exames agora captura todos os campos necessarios para analise e envio GAL plenos. Passo 1 inclui `equipamento`/`tipo_placa_analitica`; novo Passo 4 captura `gal_exame_codigo`, `kit_codigo`, `panel_tests_id`, `export_fields` e mapeamento alvo→nome_GAL. `envio_gal.construir_payload` ganha fallback de `testes_do_painel` a partir de `export_fields`. `validate_exam` emite avisos nao bloqueantes para campos GAL vazios. Guardioes: `tests/test_exam_creator_campos_gal.py` (8 passed). Ver `design.md §3.3.1`. Nao repetir.
+- **POCO-VAZIO** - concluida (2026-05-29): poco vazio = Invalido + Selecionado=False em todos os exames. Regra em `domain.resultado_geral.is_amostra_vazia` + `analysis_service._apply_resultado_geral_vectorized`. CA-14 criado em `requirements.md`. Guardiao: `tests/test_poco_vazio_invalido.py` (18 passed). Nao repetir.
+- **GAL-CODIGO-FIX** - concluida (2026-05-29): bug de perda de `gal_exame_codigo`/`panel_tests_id` ao reeditar exame corrigido. Perfis VR1e2 (VRSRT, panel 12) e ZDC (PEQZDC, panel vazio) restaurados. `_exam_to_dict` serializa `gal_exame_codigo`. Guardiao: `tests/test_exam_creator_preserva_gal_codigo.py` (3 passed). Nao repetir.
+- **GAL-ROB-001..010** - concluidas (2026-05-30): robustez do modulo de envio GAL — excecao de worker registrada estruturadamente; lote nao abortado por metadados vazios; aviso de paginas de metadados falhando; CSV validado antes do browser; aviso de `gal_exame_codigo` ausente; mascaramento de resposta do servidor; `inflight_keys` atomicas contra envio duplo intra-CSV; normalizacao simetrica de datas no reconciliador; validacao de `codigo` nao-vazio; fallback de reconciliacao por `codigo_amostra`. Arquivos: `application/gal_send_use_case.py`, `exportacao/envio_gal.py`, `exportacao/gal_payload_contract.py`, `services/gal/gal_status_reconciler.py`. Nao repetir.
+- **GAL-FEAT-001..005 + GAL-PERF-001** - concluidas (2026-05-30): feature flag `USE_GAL_ENVIO_SEM_METADADOS` (pular `/lista/`, usar `codigoAmostra` direto); fallback `codigo` = `codigoAmostra` em `construir_payload`; Firefox headless por default (`gal_integration.headless: true`) com toggle em Configuracoes GAL; terminal exibe linha por amostra com rollback `USE_GAL_TERMINAL_LOG_POR_AMOSTRA`; toggles "Ocultar navegador" e "Enviar sem metadados" em `ui/modules/tela_configuracoes.py`; janela de metadados reduzida de 365 para 15 dias. Nao repetir.
+- **DASH-001** - concluida (2026-05-30): dashboard principal usa `ExamRunsSQLiteRepository` (`banco_runtime/historico.db`) como fonte primaria com `status_gal` por amostra; fallbacks CSV mantidos. Arquivo: `ui/modules/dashboard.py`. Nao repetir.
+- **DASH-002** - concluida (2026-05-30): Gestao Clinica com campos De/Ate (DD/MM/AAAA) + botao Filtrar; `DashboardAnalyticsService` aceita `data_inicio`/`data_fim`. Arquivos: `ui/modules/dashboard.py`, `services/reports/dashboard_analytics.py`. Nao repetir.
+- **DASH-003..008 + DASH-FIX-001** - concluidas (2026-05-30): evolucao do dashboard. DASH-003 dedup "Doencas Mais Positivas" (apenas `RES_*`, sem `SRC_RES_*`; corrige Positividade; Top 12; rotulos limpos). DASH-004 Gestao com barra+radar+pizza numa figura + tabela lateral + negrito. DASH-005 nova aba "Visao Analitica" (`obter_painel_analitico`: KPIs, heatmap dia x doenca, tabela de Ct 15/7/3 dias interativa com setas/percentuais e destaque por alvo; fontes +100%). DASH-006 barra de filtros reutilizavel (Operacional filtra cards/grafico/tabela; Visao Analitica so Exame). DASH-007 detalhe de corrida read-only (coluna "Corrida", fix import `ui.theme.design_tokens`) + botao "Abrir Mapa Definitivo (Excel)" via `_localizar_mapa_definitivo` em `<data_root>/mapas`. DASH-008 tabela Corridas Recentes (busca desativada, scrollbar reancorada, ordenacao por clique asc/desc). DASH-FIX-001 `CardResumo.set_valor/set_indicativo` + Gestao/Visao Analitica desacopladas do CSV. Arquivos: `services/reports/dashboard_analytics.py`, `ui/modules/dashboard.py`, `ui/modules/componentes/card_resumo.py`. Ver `design.md §3.8`/§14.2 e CA-16/CA-17. Nao repetir.
+- **CFG-UI-001 / WIZ-UI-001 / CAL-UI-001** - concluidas (2026-05-30): CFG-UI-001 `tela_configuracoes._carregar_categoria` chama `_carregar_valores()` (corrige switch "Ocultar navegador" exibido OFF apesar do default `headless=true`). WIZ-UI-001 Passo 1 do wizard em grade compacta (sem rolagem) + botao "Limpar Etapa" (`clear_current_step`). CAL-UI-001 `SimpleCalendar(date_format=...)` + botoes de calendario nos campos De/Ate. Arquivos: `ui/modules/tela_configuracoes.py`, `ui/modules/exam_creator/wizard.py`, `ui/modules/reports.py`, `ui/modules/dashboard.py`. Nao repetir.
+- **CONFIG-PATH-001** - concluida (2026-05-30, rodada autorizada): `config.json` `paths.logs_dir`: `"dados/banco"` → `"logs"` (elimina `dados/dados/`); `paths.gal_history_csv` e `paths.gal_upload_history_csv`: `"logs/total_importados_gal.csv"` → `"logs/historico_analises.csv"`. `config/default_config.json` alinhado. Nao repetir.
+- **INST-001** - concluida: lock e escrita atomica para `config.json` implementados em `services/core/config_service.py::_save_config`. Nao repetir.
+- **INST-002** - concluida: dry-run e resumo antes de aplicar instalacao implementados. Nao repetir.
+- **INST-003** - concluida: backup/rollback da instalacao implementados. Nao repetir.
 
 Estado HIG e pendencias sem DHP para rodadas futuras:
 
@@ -221,14 +242,16 @@ Estado HIG e pendencias sem DHP para rodadas futuras:
 - CONC-004 - teste de dois admins aplicando instalacao/config.
 - CONC-005 - validar SQLite em compartilhamento.
 - CONC-006 - validar logs com 10 processos.
-- INST-001 - lock/atomic write para `config.json`.
-- INST-002 - dry-run e resumo antes de aplicar instalacao.
-- INST-003 - backup/rollback da instalacao.
 - INST-004 - ajustar Instalacao Inicial para ADMIN+MASTER com confirmacao forte, log/auditoria e backup previo futuro.
 - INST-005 - teste end-to-end do wizard de instalacao.
+- GAL-PEND-001 - S3/S6: retry com classificacao de erro transitorio vs definitivo em `enviar_amostra()`. Validar idempotencia do endpoint `/gravar/` antes de implementar.
+- GAL-PEND-002 - S18: suite de testes sem Selenium real para o modulo GAL.
 - PRIV-001 - auditoria LGPD/controlada de `banco/*`; conteudo nao deve ser aberto sem autorizacao formal e ambiente controlado; nao bloqueia outras tarefas HIG.
 - GIG-001 - estender `.gitignore` para CSVs operacionais de `banco/` ainda nao cobertos (sessoes.csv, configuracoes_sistema.csv, exames*.csv, placas*.csv, regras*.csv, sas.csv, profiles/*.json, protocols/*.json); executar em rodada propria sem alterar arquivos fisicos.
 - HIG-009 - planejar separacao `banco_template/` (esquema/vazio) + `banco_runtime/` (gerado na instalacao) com bootstrap seguro; requer refatoracao de ~18 arquivos `.py`; executar em rodada de codigo separada apos PRIV-001 e GIG-001.
+- DHP-10 - verificar `dados/banco/historico.db` (131KB, mais antigo) antes de qualquer exclusao.
+- DHP-11 - decidir destino dos CSVs duplicados residuais em `dados/banco/` apos migracao das corridas.
+- DHP-12 - verificar `banco_template/historico.db` (3.3MB, suspeito) antes de qualquer decisao.
 
 ## 17. Como agir diante de achados criticos
 

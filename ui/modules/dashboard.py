@@ -6,6 +6,7 @@ Fase 3.1 - Interface Gráfica
 import customtkinter as ctk
 from tkinter import ttk
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -87,6 +88,10 @@ class Dashboard(ctk.CTkFrame):
         self.df_historico = None
         self.cards = {}
         self.cards_gestao = {}
+        self.cards_analitica = {}
+        self.alvo_analitico = None
+        self._painel_cache = None
+        self._filtros = {}
         self.analytics_service = DashboardAnalyticsService()
         self.periodo_gestao = 30
 
@@ -141,19 +146,25 @@ class Dashboard(ctk.CTkFrame):
         
         self.tab_operacional = self.tabview.add("Operacional")
         self.tab_gestao = self.tabview.add("Gestão Clínica")
-        
+        self.tab_analitica = self.tabview.add("Visão Analítica")
+
         self.tab_operacional.grid_columnconfigure(0, weight=1)
         self.tab_gestao.grid_columnconfigure(0, weight=1)
-        
+        self.tab_analitica.grid_columnconfigure(0, weight=1)
+
         # Setup Operacional
+        self._criar_barra_filtros(self.tab_operacional, "operacional", self._aplicar_filtro_operacional, row=0)
         self._criar_secao_cards(self.tab_operacional)
         self._criar_secao_grafico(self.tab_operacional)
         self._criar_secao_tabela(self.tab_operacional)
-        
+
         # Setup Gestao
         self._criar_filtro_gestao(self.tab_gestao)
         self._criar_secao_cards_gestao(self.tab_gestao)
         self._criar_secao_grafico_gestao(self.tab_gestao)
+
+        # Setup Visao Analitica
+        self._criar_tab_analitica(self.tab_analitica)
     
     def _criar_header(self):
         """Cria header moderno com saudação e data"""
@@ -284,6 +295,8 @@ class Dashboard(ctk.CTkFrame):
         frame_tabela.grid_columnconfigure(0, weight=1)
         
         # Título
+        frame_tabela.grid_rowconfigure(1, weight=1)
+
         label_titulo = ctk.CTkLabel(
             frame_tabela,
             text="📋 Corridas Recentes",
@@ -291,26 +304,19 @@ class Dashboard(ctk.CTkFrame):
             text_color=Theme.TEXT_PRIMARY
         )
         label_titulo.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
-        
-        self.entry_busca = ctk.CTkEntry(
-            frame_tabela,
-            placeholder_text="🔎 Buscar corrida (exame, data, equipamento)...",
-            width=300
-        )
-        self.entry_busca.grid(row=0, column=1, sticky="e", padx=20, pady=(15, 10))
-        self.entry_busca.bind("<KeyRelease>", self._atualizar_tabela)
-        
-        # Frame para a tabela
-        frame_tree = ctk.CTkFrame(
-            frame_tabela,
-            fg_color=Theme.BG_CARD
-        )
-        frame_tree.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+
+        # Caixa de busca lateral DESATIVADA (mantida como None p/ compatibilidade).
+        self.entry_busca = None
+
+        # Container que agrupa a tabela + barra de rolagem lado a lado
+        frame_tree = ctk.CTkFrame(frame_tabela, fg_color=Theme.BG_CARD)
+        frame_tree.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 15))
         frame_tree.grid_columnconfigure(0, weight=1)
-        
-        # Scrollbar
+        frame_tree.grid_rowconfigure(0, weight=1)
+
+        # Scrollbar (dentro do mesmo container da tabela)
         scrollbar = ttk.Scrollbar(frame_tree, orient="vertical")
-        
+
         # Treeview (tabela)
         style = ttk.Style()
         style.theme_use("clam")
@@ -330,50 +336,194 @@ class Dashboard(ctk.CTkFrame):
             borderwidth=0
         )
         style.map('Treeview', background=[('selected', Theme.PRIMARY_BLUE_LIGHT)], foreground=[('selected', Theme.PRIMARY_BLUE_HOVER)])
-        
+
         self.tree = ttk.Treeview(
-            frame_tabela,
-            columns=("data_hora", "exame", "equipamento", "status", "corrida_id"),
-            displaycolumns=("data_hora", "exame", "equipamento", "status"),
+            frame_tree,
+            columns=("data_hora", "corrida", "exame", "equipamento", "status", "corrida_id"),
+            displaycolumns=("data_hora", "corrida", "exame", "equipamento", "status"),
             show="headings",
             yscrollcommand=scrollbar.set,
             style="Historico.Treeview"
         )
-        
-        # Configurar colunas
-        self.tree.heading("data_hora", text="Data/Hora")
-        self.tree.heading("exame", text="Exame")
-        self.tree.heading("equipamento", text="Equipamento")
-        self.tree.heading("status", text="Status")
-        
-        self.tree.column("data_hora", width=150, anchor="w")
-        self.tree.column("exame", width=250, anchor="w")
-        self.tree.column("equipamento", width=200, anchor="w")
-        self.tree.column("status", width=120, anchor="center")
-        
+
+        # Títulos base e ordenação por clique no cabeçalho
+        self._tabela_col_titulos = {
+            "data_hora": "Data/Hora",
+            "corrida": "Corrida",
+            "exame": "Exame",
+            "equipamento": "Equipamento",
+            "status": "Status",
+        }
+        self._sort_state = {}
+        for col, titulo in self._tabela_col_titulos.items():
+            self.tree.heading(col, text=titulo, command=lambda c=col: self._ordenar_tabela(c))
+
+        self.tree.column("data_hora", width=130, anchor="w")
+        self.tree.column("corrida", width=240, anchor="w")
+        self.tree.column("exame", width=200, anchor="w")
+        self.tree.column("equipamento", width=140, anchor="w")
+        self.tree.column("status", width=110, anchor="center")
+
         scrollbar.config(command=self.tree.yview)
-        
-        self.tree.grid(row=0, column=0, sticky="ew")
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
-        
-        # Bind para duplo clique (futura navegação para detalhes)
+
+        # Bind para duplo clique (abre detalhes/resultados da corrida)
         self.tree.bind("<Double-1>", self._on_item_double_click)
+
+    def _ordenar_tabela(self, col):
+        """Ordena a tabela pela coluna clicada. 1º clique ascendente, 2º descendente."""
+        reverse = getattr(self, "_sort_state", {}).get(col, False)
+        filhos = list(self.tree.get_children(""))
+        dados = [(self.tree.set(k, col), k) for k in filhos]
+        try:
+            dados.sort(key=lambda t: self._sort_key(col, t[0]), reverse=reverse)
+        except Exception:
+            dados.sort(key=lambda t: str(t[0]).lower(), reverse=reverse)
+        for idx, (_, k) in enumerate(dados):
+            self.tree.move(k, "", idx)
+        # Próximo clique nesta coluna inverte; clicar em outra recomeça ascendente.
+        self._sort_state = {col: not reverse}
+        self._atualizar_headings_sort(col, reverse)
+
+    def _sort_key(self, col, value):
+        v = str(value or "").strip()
+        if col == "data_hora":
+            for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(v, fmt)
+                except ValueError:
+                    continue
+            return datetime.min
+        return v.lower()
+
+    def _atualizar_headings_sort(self, sorted_col, reverse_used):
+        seta = " ▼" if reverse_used else " ▲"
+        for c, base in getattr(self, "_tabela_col_titulos", {}).items():
+            self.tree.heading(c, text=base + (seta if c == sorted_col else ""))
     
+
+    def _criar_barra_filtros(self, parent, contexto, on_filtrar, row=0, somente_exame=False):
+        """Cria a barra de filtros padrao (Período, Exame, De/Até, Filtrar).
+
+        `contexto` identifica o estado em self._filtros. Quando `somente_exame`
+        é True, apenas o filtro de Exame fica ativo (usado na Visão Analítica).
+        """
+        from ui.theme import Theme
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
+        frame.grid(row=row, column=0, sticky="ew", padx=20, pady=10)
+
+        st = {"periodo": 30, "exame": "Todos"}
+        self._filtros[contexto] = st
+
+        # Período
+        ctk.CTkLabel(frame, text="Período:", font=Theme.get_font_primary(size=14, weight="bold")).pack(side="left", padx=(0, 10))
+
+        def on_periodo(choice):
+            st["periodo"] = {"Últimos 7 dias": 7, "Últimos 30 dias": 30, "Últimos 6 meses": 180}.get(choice, 30)
+            if st.get("ent_ini"):
+                st["ent_ini"].delete(0, "end")
+                st["ent_fim"].delete(0, "end")
+            on_filtrar()
+
+        cb_per = ctk.CTkOptionMenu(
+            frame, values=["Últimos 7 dias", "Últimos 30 dias", "Últimos 6 meses"], command=on_periodo
+        )
+        cb_per.set("Últimos 30 dias")
+        cb_per.pack(side="left")
+        st["cb_periodo"] = cb_per
+
+        # Exame
+        ctk.CTkLabel(frame, text="Exame:", font=Theme.get_font_primary(size=14, weight="bold")).pack(side="left", padx=(20, 10))
+
+        def on_exame(choice):
+            st["exame"] = choice
+            on_filtrar()
+
+        cb_ex = ctk.CTkOptionMenu(frame, values=["Todos"], command=on_exame)
+        cb_ex.set("Todos")
+        cb_ex.pack(side="left")
+        st["cb_exame"] = cb_ex
+
+        # De / Até + calendário
+        def abrir_calendario(entry):
+            from ui.modules.reports import SimpleCalendar
+            SimpleCalendar(self, entry, date_format="%d/%m/%Y")
+
+        ctk.CTkLabel(frame, text="De:", font=Theme.get_font_primary(size=13)).pack(side="left", padx=(20, 4))
+        ent_ini = ctk.CTkEntry(frame, width=95, placeholder_text="DD/MM/AAAA")
+        ent_ini.pack(side="left")
+        btn_cal1 = ctk.CTkButton(frame, text="📅", width=32, command=lambda: abrir_calendario(ent_ini))
+        btn_cal1.pack(side="left", padx=(2, 0))
+
+        ctk.CTkLabel(frame, text="Até:", font=Theme.get_font_primary(size=13)).pack(side="left", padx=(8, 4))
+        ent_fim = ctk.CTkEntry(frame, width=95, placeholder_text="DD/MM/AAAA")
+        ent_fim.pack(side="left")
+        btn_cal2 = ctk.CTkButton(frame, text="📅", width=32, command=lambda: abrir_calendario(ent_fim))
+        btn_cal2.pack(side="left", padx=(2, 0))
+        st["ent_ini"] = ent_ini
+        st["ent_fim"] = ent_fim
+
+        btn_filtrar = ctk.CTkButton(frame, text="Filtrar", width=70, command=on_filtrar)
+        btn_filtrar.pack(side="left", padx=(8, 0))
+
+        if somente_exame:
+            # Visão Analítica: só Exame filtra; demais ficam inativos.
+            for w in (cb_per, ent_ini, ent_fim, btn_cal1, btn_cal2):
+                w.configure(state="disabled")
+
+        return st
+
+    def _set_exame_options(self, st, exames):
+        """Atualiza as opções do dropdown de Exame preservando a seleção atual."""
+        cb = st.get("cb_exame")
+        if cb is None:
+            return
+        valores = ["Todos"] + [e for e in exames if e]
+        atual = cb.get()
+        cb.configure(values=valores)
+        if atual in valores:
+            cb.set(atual)
+        else:
+            cb.set("Todos")
+            st["exame"] = "Todos"
+
+    def _janela_filtro(self, st):
+        """Retorna (datetime_ini, datetime_fim) a partir do estado do filtro."""
+        si = st["ent_ini"].get().strip() if st.get("ent_ini") else ""
+        sf = st["ent_fim"].get().strip() if st.get("ent_fim") else ""
+        if si and sf:
+            try:
+                ini = datetime.strptime(si, "%d/%m/%Y").replace(hour=0, minute=0, second=0)
+                fim = datetime.strptime(sf, "%d/%m/%Y").replace(hour=23, minute=59, second=59)
+                return ini, fim
+            except ValueError:
+                pass
+        fim = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
+        ini = fim - timedelta(days=st.get("periodo", 30))
+        return ini, fim
 
     def _criar_filtro_gestao(self, parent):
         from ui.theme import Theme
         frame_filtro = ctk.CTkFrame(parent, fg_color="transparent")
         frame_filtro.grid(row=0, column=0, sticky="ew", padx=20, pady=10)
-        
+
+        # --- Período pré-configurado ---
         label_filtro = ctk.CTkLabel(frame_filtro, text="Período:", font=Theme.get_font_primary(size=14, weight="bold"))
         label_filtro.pack(side="left", padx=(0, 10))
-        
+
         def on_filter_change(choice):
             if choice == "Últimos 7 dias": self.periodo_gestao = 7
             elif choice == "Últimos 30 dias": self.periodo_gestao = 30
             elif choice == "Últimos 6 meses": self.periodo_gestao = 180
+            # Limpa campos de data ao selecionar período pré-configurado
+            if hasattr(self, "entry_data_inicio"):
+                self.entry_data_inicio.delete(0, "end")
+                self.entry_data_fim.delete(0, "end")
             self._atualizar_dados_gestao()
 
+        self.periodo_gestao = 30
         self.filtro_periodo = ctk.CTkOptionMenu(
             frame_filtro,
             values=["Últimos 7 dias", "Últimos 30 dias", "Últimos 6 meses"],
@@ -381,10 +531,11 @@ class Dashboard(ctk.CTkFrame):
         )
         self.filtro_periodo.set("Últimos 30 dias")
         self.filtro_periodo.pack(side="left")
-        
+
+        # --- Exame ---
         label_exame = ctk.CTkLabel(frame_filtro, text="Exame:", font=Theme.get_font_primary(size=14, weight="bold"))
         label_exame.pack(side="left", padx=(20, 10))
-        
+
         def on_exame_change(choice):
             self.exame_gestao = choice
             self._atualizar_dados_gestao()
@@ -397,6 +548,38 @@ class Dashboard(ctk.CTkFrame):
         )
         self.filtro_exame.set("Todos")
         self.filtro_exame.pack(side="left")
+
+        # --- Intervalo de datas específico ---
+        def abrir_calendario(entry):
+            from ui.modules.reports import SimpleCalendar
+            SimpleCalendar(self, entry, date_format="%d/%m/%Y")
+
+        ctk.CTkLabel(frame_filtro, text="De:", font=Theme.get_font_primary(size=13)).pack(side="left", padx=(20, 4))
+        self.entry_data_inicio = ctk.CTkEntry(frame_filtro, width=95, placeholder_text="DD/MM/AAAA")
+        self.entry_data_inicio.pack(side="left")
+        ctk.CTkButton(
+            frame_filtro, text="📅", width=32,
+            command=lambda: abrir_calendario(self.entry_data_inicio),
+        ).pack(side="left", padx=(2, 0))
+
+        ctk.CTkLabel(frame_filtro, text="Até:", font=Theme.get_font_primary(size=13)).pack(side="left", padx=(8, 4))
+        self.entry_data_fim = ctk.CTkEntry(frame_filtro, width=95, placeholder_text="DD/MM/AAAA")
+        self.entry_data_fim.pack(side="left")
+        ctk.CTkButton(
+            frame_filtro, text="📅", width=32,
+            command=lambda: abrir_calendario(self.entry_data_fim),
+        ).pack(side="left", padx=(2, 0))
+
+        def on_filtrar():
+            # Quando datas preenchidas, ignora o período pré-configurado
+            self._atualizar_dados_gestao()
+
+        ctk.CTkButton(
+            frame_filtro,
+            text="Filtrar",
+            width=70,
+            command=on_filtrar,
+        ).pack(side="left", padx=(8, 0))
 
     def _criar_secao_cards_gestao(self, parent):
         frame_cards = ctk.CTkFrame(parent, fg_color="transparent")
@@ -423,22 +606,51 @@ class Dashboard(ctk.CTkFrame):
         frame_grafico = ctk.CTkFrame(parent, fg_color=Theme.BG_CARD, corner_radius=8)
         frame_grafico.grid(row=2, column=0, sticky="nsew", padx=20, pady=10)
         parent.grid_rowconfigure(2, weight=1)
-        frame_grafico.grid_columnconfigure(0, weight=1)
+        frame_grafico.grid_columnconfigure(0, weight=4)
+        frame_grafico.grid_columnconfigure(1, weight=1)
         frame_grafico.grid_rowconfigure(1, weight=1)
-        
+
         label_titulo = ctk.CTkLabel(
-            frame_grafico, text="📊 Doenças Mais Positivas", font=Theme.get_font_primary(size=14, weight="bold")
+            frame_grafico, text="📊 Doenças Mais Positivas — barras, radar e pizza",
+            font=Theme.get_font_primary(size=14, weight="bold")
         )
-        label_titulo.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
-        
-        self.frame_canvas_gestao = ctk.CTkFrame(frame_grafico, fg_color=Theme.BG_CARD)
-        self.frame_canvas_gestao.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 15))
+        label_titulo.grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(15, 10))
+
+        self.frame_canvas_gestao = ctk.CTkFrame(frame_grafico, fg_color=Theme.BG_CARD, height=480)
+        self.frame_canvas_gestao.grid(row=1, column=0, sticky="nsew", padx=(20, 10), pady=(0, 15))
         self.canvas_gestao = None
+
+        # Tabela de dados ao lado dos graficos (Alvo | Positivos | %)
+        self.frame_tabela_gestao = ctk.CTkScrollableFrame(
+            frame_grafico, fg_color=Theme.BG_CARD, width=230, label_text="Resumo por alvo"
+        )
+        self.frame_tabela_gestao.grid(row=1, column=1, sticky="nsew", padx=(0, 20), pady=(0, 15))
 
     def _atualizar_dados_gestao(self):
         try:
+            from datetime import datetime as _dt
             exame_atual = getattr(self, "exame_gestao", "Todos")
-            stats = self.analytics_service.obter_estatisticas_gestao(self.periodo_gestao, exame_filtro=exame_atual)
+            periodo = getattr(self, "periodo_gestao", 30)
+
+            # Lê datas dos campos de entrada, se preenchidos
+            _data_inicio = None
+            _data_fim = None
+            if hasattr(self, "entry_data_inicio"):
+                _str_ini = self.entry_data_inicio.get().strip()
+                _str_fim = self.entry_data_fim.get().strip()
+                if _str_ini and _str_fim:
+                    try:
+                        _data_inicio = _dt.strptime(_str_ini, "%d/%m/%Y")
+                        _data_fim = _dt.strptime(_str_fim, "%d/%m/%Y")
+                    except ValueError:
+                        pass  # Formato inválido → usa período pré-configurado
+
+            stats = self.analytics_service.obter_estatisticas_gestao(
+                periodo,
+                exame_filtro=exame_atual,
+                data_inicio=_data_inicio,
+                data_fim=_data_fim,
+            )
             
             unique_exams = stats.get("unique_exams", [])
             if unique_exams and hasattr(self, "filtro_exame"):
@@ -477,31 +689,389 @@ class Dashboard(ctk.CTkFrame):
     def _atualizar_grafico_gestao(self, top_diseases):
         if hasattr(self, 'canvas_gestao') and self.canvas_gestao:
             self.canvas_gestao.get_tk_widget().destroy()
-            
-        fig = Figure(figsize=(8, 4), dpi=100)
+
+        self._preencher_tabela_gestao(top_diseases)
+
+        fig = Figure(figsize=(13, 6.5), dpi=100)
         fig.patch.set_facecolor(CORES['fundo_card'])
-        ax = fig.add_subplot(111)
-        ax.set_facecolor(CORES['fundo_card'])
-        
-        if top_diseases:
-            labels = [d["alvo"] for d in top_diseases]
-            values = [d["count"] for d in top_diseases]
-            y_pos = range(len(labels))
-            ax.barh(y_pos, values, color=GRAFICO_CORES[0])
-            ax.set_yticks(y_pos)
-            ax.set_yticklabels(labels, color=CORES['texto_secundario'])
-            ax.invert_yaxis()
-            ax.tick_params(colors=CORES['texto_secundario'])
-            for spine in ax.spines.values():
-                spine.set_color(CORES['borda'])
-        else:
-            ax.text(0.5, 0.5, "Sem dados suficientes", ha="center", va="center", color=CORES['texto_secundario'])
+
+        if not top_diseases:
+            ax = fig.add_subplot(111)
+            ax.set_facecolor(CORES['fundo_card'])
+            ax.text(0.5, 0.5, "Sem dados suficientes", ha="center", va="center",
+                    color=CORES['texto_secundario'], fontweight="bold")
             ax.set_axis_off()
-            
-        fig.tight_layout()
+            fig.tight_layout()
+            self.canvas_gestao = FigureCanvasTkAgg(fig, master=self.frame_canvas_gestao)
+            self.canvas_gestao.draw()
+            self.canvas_gestao.get_tk_widget().pack(fill="both", expand=True)
+            return
+
+        def cor(i):
+            return GRAFICO_CORES[i % len(GRAFICO_CORES)]
+
+        # Barra: Top 10 | Radar/Pizza: Top 8 (pizza agrega o restante em "Outros").
+        bar_data = top_diseases[:10]
+        radar_data = top_diseases[:8]
+
+        # Radar/pizza maiores: barra estreita a esquerda, radar/pizza ocupam a direita.
+        gs = fig.add_gridspec(2, 2, width_ratios=[0.85, 1.5], height_ratios=[1, 1],
+                              wspace=0.30, hspace=0.55)
+
+        # --- Barra horizontal (coluna esquerda, estreita) ---
+        ax_bar = fig.add_subplot(gs[:, 0])
+        ax_bar.set_facecolor(CORES['fundo_card'])
+        b_labels = [d["alvo"] for d in bar_data]
+        b_values = [d["count"] for d in bar_data]
+        y_pos = range(len(b_labels))
+        ax_bar.barh(y_pos, b_values, color=[cor(i) for i in range(len(b_labels))])
+        ax_bar.set_yticks(list(y_pos))
+        ax_bar.set_yticklabels(b_labels, color=CORES['texto_secundario'],
+                               fontsize=9, fontweight="bold")
+        ax_bar.invert_yaxis()
+        ax_bar.tick_params(colors=CORES['texto_secundario'])
+        if b_values:
+            ax_bar.set_xlim(0, max(b_values) * 1.15)
+        for i, v in enumerate(b_values):
+            ax_bar.text(v, i, f" {v}", va="center", ha="left", fontsize=8,
+                        fontweight="bold", color=CORES['texto_secundario'])
+        for spine in ax_bar.spines.values():
+            spine.set_color(CORES['borda'])
+        ax_bar.set_title("Top doenças (volume)", fontsize=11, fontweight="bold",
+                         color=CORES['texto_secundario'])
+
+        # --- Radar (direita, topo) ---
+        ax_radar = fig.add_subplot(gs[0, 1], projection="polar")
+        ax_radar.set_facecolor(CORES['fundo_card'])
+        r_labels = [d["alvo"] for d in radar_data]
+        r_values = [d["count"] for d in radar_data]
+        n = len(r_labels)
+        if n >= 3:
+            angles = np.linspace(0, 2 * np.pi, n, endpoint=False).tolist()
+            vals = r_values + r_values[:1]
+            ang = angles + angles[:1]
+            ax_radar.plot(ang, vals, color=GRAFICO_CORES[0], linewidth=2)
+            ax_radar.fill(ang, vals, color=GRAFICO_CORES[0], alpha=0.25)
+            ax_radar.set_xticks(angles)
+            ax_radar.set_xticklabels(r_labels, fontsize=9, fontweight="bold",
+                                     color=CORES['texto_secundario'])
+            ax_radar.tick_params(pad=6)
+            ax_radar.set_yticklabels([])
+        else:
+            ax_radar.text(0.5, 0.5, "Radar requer 3+ alvos", ha="center", va="center",
+                          transform=ax_radar.transAxes, fontsize=9, fontweight="bold",
+                          color=CORES['texto_secundario'])
+            ax_radar.set_axis_off()
+        ax_radar.set_title("Radar", fontsize=11, fontweight="bold",
+                           color=CORES['texto_secundario'], pad=14)
+
+        # --- Pizza (direita, baixo) com percentuais; restante vira "Outros" ---
+        ax_pie = fig.add_subplot(gs[1, 1])
+        p_labels = [d["alvo"] for d in radar_data]
+        p_values = [d["count"] for d in radar_data]
+        resto = sum(d["count"] for d in top_diseases[8:])
+        cores_pie = [cor(i) for i in range(len(p_labels))]
+        if resto > 0:
+            p_labels = p_labels + ["Outros"]
+            p_values = p_values + [resto]
+            cores_pie = cores_pie + [CORES['borda']]
+        wedges, texts, autotexts = ax_pie.pie(
+            p_values, labels=p_labels, colors=cores_pie,
+            autopct="%1.1f%%", startangle=90, pctdistance=0.75,
+            textprops={"fontsize": 9, "fontweight": "bold",
+                       "color": CORES['texto_secundario']},
+        )
+        for at in autotexts:
+            at.set_fontweight("bold")
+            at.set_fontsize(8)
+        ax_pie.set_title("Distribuição (%)", fontsize=11, fontweight="bold",
+                         color=CORES['texto_secundario'])
+
         self.canvas_gestao = FigureCanvasTkAgg(fig, master=self.frame_canvas_gestao)
         self.canvas_gestao.draw()
         self.canvas_gestao.get_tk_widget().pack(fill="both", expand=True)
+
+    def _preencher_tabela_gestao(self, top_diseases):
+        """Preenche a tabela de dados ao lado dos graficos (Alvo | Positivos | %)."""
+        frame = getattr(self, "frame_tabela_gestao", None)
+        if frame is None:
+            return
+        for w in frame.winfo_children():
+            w.destroy()
+
+        total = sum(d["count"] for d in top_diseases) or 1
+        header = ("Alvo", "Pos.", "%")
+        for col, txt in enumerate(header):
+            ctk.CTkLabel(
+                frame, text=txt, font=ctk.CTkFont(size=12, weight="bold"),
+                anchor="w" if col == 0 else "e",
+            ).grid(row=0, column=col, sticky="ew", padx=4, pady=(2, 4))
+        frame.grid_columnconfigure(0, weight=1)
+
+        for i, d in enumerate(top_diseases, start=1):
+            pct = d["count"] / total * 100.0
+            ctk.CTkLabel(
+                frame, text=d["alvo"], font=ctk.CTkFont(size=12, weight="bold"), anchor="w"
+            ).grid(row=i, column=0, sticky="ew", padx=4, pady=1)
+            ctk.CTkLabel(
+                frame, text=str(d["count"]), font=ctk.CTkFont(size=12), anchor="e"
+            ).grid(row=i, column=1, sticky="ew", padx=4, pady=1)
+            ctk.CTkLabel(
+                frame, text=f"{pct:.1f}%", font=ctk.CTkFont(size=12), anchor="e"
+            ).grid(row=i, column=2, sticky="ew", padx=4, pady=1)
+
+    # ------------------------------------------------------------------
+    # Aba "Visão Analítica"
+    # ------------------------------------------------------------------
+    def _criar_tab_analitica(self, parent):
+        from ui.theme import Theme
+        parent.grid_columnconfigure(0, weight=1)
+
+        # --- Barra de filtros (na Visão Analítica só o Exame filtra) ---
+        self._criar_barra_filtros(
+            parent, "analitica", self._atualizar_dados_analitica, row=0, somente_exame=True
+        )
+
+        # --- KPIs ---
+        frame_cards = ctk.CTkFrame(parent, fg_color="transparent")
+        frame_cards.grid(row=1, column=0, sticky="ew", padx=20, pady=(12, 6))
+        frame_cards.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        self.cards_analitica['volume'] = criar_card_estatistica(
+            frame_cards, titulo="Volume (15 dias)", valor="0", tipo="info", indicativo_texto="total"
+        )
+        self.cards_analitica['volume'].grid(row=0, column=0, sticky="ew", padx=8)
+        self.cards_analitica['media'] = criar_card_estatistica(
+            frame_cards, titulo="Volume médio/dia", valor="0", tipo="info", indicativo_texto="15 dias"
+        )
+        self.cards_analitica['media'].grid(row=0, column=1, sticky="ew", padx=8)
+        self.cards_analitica['positividade'] = criar_card_estatistica(
+            frame_cards, titulo="Positividade", valor="0%", tipo="sucesso", indicativo_texto="15 dias"
+        )
+        self.cards_analitica['positividade'].grid(row=0, column=2, sticky="ew", padx=8)
+        self.cards_analitica['pendentes'] = criar_card_estatistica(
+            frame_cards, titulo="Pendentes GAL", valor="0", tipo="aviso", indicativo_texto="não enviadas"
+        )
+        self.cards_analitica['pendentes'].grid(row=0, column=3, sticky="ew", padx=8)
+
+        # Fontes da Visão Analítica ampliadas (+100%): dobra as fontes dos cards.
+        for _card in self.cards_analitica.values():
+            try:
+                _card.label_titulo.configure(font=ctk.CTkFont(size=26, weight="bold"))
+                _card.label_valor.configure(font=ctk.CTkFont(size=56, weight="bold"))
+                if hasattr(_card, "label_indicativo"):
+                    _card.label_indicativo.configure(font=ctk.CTkFont(size=22, weight="bold"))
+            except Exception:
+                pass
+
+        # --- Rótulo de filtro/seleção ---
+        self.lbl_filtro_analitico = ctk.CTkLabel(
+            parent,
+            text="Mostrando todos os alvos — clique num alvo na tabela para destacar",
+            font=Theme.get_font_primary(size=24, weight="bold"),
+        )
+        self.lbl_filtro_analitico.grid(row=2, column=0, sticky="w", padx=24, pady=(4, 0))
+
+        # --- Heatmap dia x doença ---
+        frame_hm = ctk.CTkFrame(parent, fg_color=Theme.BG_CARD, corner_radius=8)
+        frame_hm.grid(row=3, column=0, sticky="nsew", padx=20, pady=10)
+        frame_hm.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            frame_hm, text="🗓 Heatmap — positivos por dia × doença (15 dias)",
+            font=Theme.get_font_primary(size=28, weight="bold"),
+        ).grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
+        self.frame_canvas_heatmap = ctk.CTkFrame(frame_hm, fg_color=Theme.BG_CARD, height=480)
+        self.frame_canvas_heatmap.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 15))
+        self.canvas_heatmap = None
+
+        # --- Tabela de Ct interativa ---
+        frame_ct = ctk.CTkFrame(parent, fg_color=Theme.BG_CARD, corner_radius=8)
+        frame_ct.grid(row=4, column=0, sticky="nsew", padx=20, pady=10)
+        frame_ct.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            frame_ct, text="🧪 Ct médio por alvo — 15 / 7 / 3 dias (clique num alvo para destacar)",
+            font=Theme.get_font_primary(size=28, weight="bold"),
+        ).grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
+        self.frame_ct_table = ctk.CTkFrame(frame_ct, fg_color=Theme.BG_CARD)
+        self.frame_ct_table.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 15))
+
+    def _atualizar_dados_analitica(self):
+        st = self._filtros.get("analitica")
+        exame = st.get("exame", "Todos") if st else "Todos"
+        try:
+            painel = self.analytics_service.obter_painel_analitico(exame)
+        except Exception as e:
+            registrar_log(f"Erro ao carregar painel analitico: {str(e)}", level="error")
+            return
+        self._painel_cache = painel
+        # Troca de exame pode invalidar o alvo destacado
+        if self.alvo_analitico and self.alvo_analitico not in painel.get("alvos", []):
+            self.alvo_analitico = None
+        if st and painel.get("unique_exams"):
+            self._set_exame_options(st, painel["unique_exams"])
+        self._atualizar_kpis_analitica()
+        self._render_heatmap_analitico(painel["heatmap"])
+        self._render_ct_table(painel["ct_table"])
+
+    def _atualizar_kpis_analitica(self):
+        painel = self._painel_cache
+        if not painel:
+            return
+        k = painel["kpis"]
+        if 'volume' in self.cards_analitica:
+            self.cards_analitica['volume'].set_valor(str(k['volume_total']))
+        if 'media' in self.cards_analitica:
+            self.cards_analitica['media'].set_valor(f"{k['volume_dia_media']:.1f}")
+        if 'pendentes' in self.cards_analitica:
+            self.cards_analitica['pendentes'].set_valor(str(k['pendentes_gal']))
+        if 'positividade' in self.cards_analitica:
+            alvo = self.alvo_analitico
+            if alvo and alvo in painel.get("positividade_por_alvo", {}):
+                pos = painel["positividade_por_alvo"][alvo]
+                self.cards_analitica['positividade'].set_valor(f"{pos:.1f}%")
+                self.cards_analitica['positividade'].set_indicativo(f"alvo {alvo}")
+            else:
+                self.cards_analitica['positividade'].set_valor(f"{k['positividade']:.1f}%")
+                self.cards_analitica['positividade'].set_indicativo("15 dias (global)")
+
+    def _fmt_delta(self, delta):
+        """Retorna (texto_com_seta, cor) para a variação percentual."""
+        if delta is None:
+            return "—", CORES['texto_secundario']
+        if abs(delta) < 0.5:
+            return f"➖ {delta:+.1f}%", CORES['texto_secundario']
+        if delta > 0:
+            return f"▲ {delta:+.1f}%", "#E53935"   # aumento
+        return f"▼ {delta:+.1f}%", "#43A047"        # diminuição
+
+    def _render_heatmap_analitico(self, heatmap):
+        if getattr(self, 'canvas_heatmap', None):
+            self.canvas_heatmap.get_tk_widget().destroy()
+            self.canvas_heatmap = None
+
+        dias = heatmap.get("dias", [])
+        alvos = heatmap.get("alvos", [])
+        matriz = heatmap.get("matriz", [])
+
+        fig = Figure(figsize=(14, 5.6), dpi=100)
+        fig.patch.set_facecolor(CORES['fundo_card'])
+        ax = fig.add_subplot(111)
+        ax.set_facecolor(CORES['fundo_card'])
+
+        if not alvos or not matriz:
+            ax.text(0.5, 0.5, "Sem dados suficientes", ha="center", va="center",
+                    fontsize=20, fontweight="bold", color=CORES['texto_secundario'])
+            ax.set_axis_off()
+        else:
+            import matplotlib.patches as mpatches
+            data = np.array(matriz, dtype=float)
+            im = ax.imshow(data, aspect="auto", cmap="YlOrRd")
+            vmax = data.max() if data.size else 0
+
+            ax.set_xticks(range(len(dias)))
+            ax.set_xticklabels([f"{d[8:10]}/{d[5:7]}" for d in dias], rotation=45,
+                               ha="right", fontsize=16, fontweight="bold",
+                               color=CORES['texto_secundario'])
+            ax.set_yticks(range(len(alvos)))
+            ax.set_yticklabels(alvos, fontsize=20, fontweight="bold",
+                               color=CORES['texto_secundario'])
+
+            for r in range(len(alvos)):
+                for c in range(len(dias)):
+                    v = int(data[r, c])
+                    if v > 0:
+                        cor_txt = "white" if (vmax and v > vmax * 0.6) else CORES.get('texto', '#333333')
+                        ax.text(c, r, str(v), ha="center", va="center", fontsize=14,
+                                fontweight="bold", color=cor_txt)
+
+            sel = self.alvo_analitico
+            if sel in alvos:
+                ridx = alvos.index(sel)
+                for r in range(len(alvos)):
+                    if r != ridx:
+                        ax.add_patch(mpatches.Rectangle(
+                            (-0.5, r - 0.5), len(dias), 1, fill=True,
+                            color=CORES['fundo_card'], alpha=0.55, zorder=3))
+                ax.add_patch(mpatches.Rectangle(
+                    (-0.5, ridx - 0.5), len(dias), 1, fill=False,
+                    edgecolor=CORES['primaria'], lw=3, zorder=4))
+
+            fig.colorbar(im, ax=ax, fraction=0.025, pad=0.01)
+
+        fig.tight_layout()
+        self.canvas_heatmap = FigureCanvasTkAgg(fig, master=self.frame_canvas_heatmap)
+        self.canvas_heatmap.draw()
+        self.canvas_heatmap.get_tk_widget().pack(fill="both", expand=True)
+
+    def _render_ct_table(self, ct_table):
+        frame = getattr(self, "frame_ct_table", None)
+        if frame is None:
+            return
+        for w in frame.winfo_children():
+            w.destroy()
+
+        destaque_bg = "#E3F2FD"   # realce da coluna 3 dias
+        sel_bg = "#FFF3CD"        # linha selecionada
+        headers = ["Alvo", "Ct 15d", "Ct 7d", "Δ 7d", "Ct 3d", "Δ 3d"]
+        for col, h in enumerate(headers):
+            bg = destaque_bg if col in (4, 5) else "transparent"
+            ctk.CTkLabel(
+                frame, text=h, font=ctk.CTkFont(size=24, weight="bold"),
+                fg_color=bg, corner_radius=4,
+            ).grid(row=0, column=col, sticky="ew", padx=2, pady=(2, 6), ipadx=6)
+        frame.grid_columnconfigure(0, weight=1)
+
+        def f1(v):
+            return f"{v:.1f}" if isinstance(v, (int, float)) else "—"
+
+        for i, r in enumerate(ct_table, start=1):
+            alvo = r["alvo"]
+            selected = (alvo == self.alvo_analitico)
+            row_bg = sel_bg if selected else "transparent"
+
+            lbl_alvo = ctk.CTkLabel(frame, text=alvo, anchor="w",
+                                    font=ctk.CTkFont(size=24, weight="bold"),
+                                    fg_color=row_bg, corner_radius=4)
+            lbl_alvo.grid(row=i, column=0, sticky="ew", padx=2, pady=1, ipadx=6)
+
+            lbl15 = ctk.CTkLabel(frame, text=f1(r["ct15"]), font=ctk.CTkFont(size=24))
+            lbl15.grid(row=i, column=1, padx=2, pady=1)
+            lbl7 = ctk.CTkLabel(frame, text=f1(r["ct7"]), font=ctk.CTkFont(size=24))
+            lbl7.grid(row=i, column=2, padx=2, pady=1)
+
+            d7txt, d7col = self._fmt_delta(r["delta7"])
+            lbl_d7 = ctk.CTkLabel(frame, text=d7txt, text_color=d7col,
+                                  font=ctk.CTkFont(size=24, weight="bold"))
+            lbl_d7.grid(row=i, column=3, padx=2, pady=1)
+
+            lbl3 = ctk.CTkLabel(frame, text=f1(r["ct3"]), fg_color=destaque_bg, corner_radius=4,
+                                font=ctk.CTkFont(size=28, weight="bold"))
+            lbl3.grid(row=i, column=4, padx=2, pady=1, ipadx=6)
+
+            d3txt, d3col = self._fmt_delta(r["delta3"])
+            lbl_d3 = ctk.CTkLabel(frame, text=d3txt, text_color=d3col, fg_color=destaque_bg,
+                                  corner_radius=4, font=ctk.CTkFont(size=26, weight="bold"))
+            lbl_d3.grid(row=i, column=5, padx=2, pady=1, ipadx=6)
+
+            for w in (lbl_alvo, lbl15, lbl7, lbl_d7, lbl3, lbl_d3):
+                w.bind("<Button-1>", lambda e, a=alvo: self._selecionar_alvo(a))
+
+    def _selecionar_alvo(self, alvo):
+        """Alterna o alvo destacado e re-renderiza heatmap, tabela e KPIs."""
+        self.alvo_analitico = None if self.alvo_analitico == alvo else alvo
+
+        if hasattr(self, 'lbl_filtro_analitico'):
+            if self.alvo_analitico:
+                self.lbl_filtro_analitico.configure(
+                    text=f"Destacando: {self.alvo_analitico} — clique novamente para limpar")
+            else:
+                self.lbl_filtro_analitico.configure(
+                    text="Mostrando todos os alvos — clique num alvo na tabela para destacar")
+
+        if self._painel_cache:
+            self._atualizar_kpis_analitica()
+            self._render_heatmap_analitico(self._painel_cache["heatmap"])
+            self._render_ct_table(self._painel_cache["ct_table"])
 
     def carregar_dados(self):
         """
@@ -557,7 +1127,50 @@ class Dashboard(ctk.CTkFrame):
         try:
             dados = {"df": None, "origem": None, "erro": None}
 
-            # 1. Fonte canônica via service (provider + fallback contratual)
+            # 0. Fonte canônica P3: SQLite historico.db + status GAL do journal
+            try:
+                from services.persistence.exam_runs_sqlite import ExamRunsSQLiteRepository
+                from services.gal.gal_transactions import default_transaction_journal_path
+                from services.gal.gal_status_reconciler import reconcile_gal_status
+
+                sqlite_rows = ExamRunsSQLiteRepository().list_rows()
+                if sqlite_rows:
+                    journal_path = default_transaction_journal_path()
+                    gal_statuses = reconcile_gal_status(sqlite_rows, journal_path)
+
+                    mapped = []
+                    for row in sqlite_rows:
+                        codigo = str(row.get("amostra_codigo") or "")
+                        data_hora = (
+                            f"{row.get('data_exame', '')} {row.get('hora_exame', '')}".strip()
+                        )
+                        mapped.append({
+                            "corrida_id": row.get("corrida_id", ""),
+                            "nome_corrida": row.get("nome_corrida", ""),
+                            "exame": row.get("exame_slug", ""),
+                            "equipamento": (
+                                row.get("equipamento_id")
+                                or row.get("equipamento_modelo")
+                                or "N/A"
+                            ),
+                            "data_hora": data_hora,
+                            "status_corrida": row.get("status_placa") or "Valida",
+                            "resultado_geral": row.get("resultado_geral", ""),
+                            "analista": row.get("analista", ""),
+                            "lote": row.get("lote", ""),
+                            "amostra_codigo": codigo,
+                            "status_gal": gal_statuses.get(codigo, "nao_enviado"),
+                        })
+
+                    df = self._normalizar_dataframe_historico(pd.DataFrame(mapped))
+                    dados["df"] = df
+                    dados["origem"] = "SQLite (historico.db)"
+                    result_queue.put(dados)
+                    return
+            except Exception:
+                pass
+
+            # 1. Fallback: HistoryReportService (CSV contratual)
             try:
                 df_hist = HistoryReportService().ler_historico(limit=1000)
                 if df_hist is not None and not df_hist.empty:
@@ -647,7 +1260,21 @@ class Dashboard(ctk.CTkFrame):
 
         # Atualizar com dados
         self._atualizar_interface_com_dados()
-    
+
+        # A aba Gestao Clinica le do SQLite (banco_runtime/historico.db) via
+        # DashboardAnalyticsService, fonte independente do historico CSV do Operacional.
+        # Atualiza sempre, mesmo quando df_historico esta vazio/em modo exemplo.
+        try:
+            self._atualizar_dados_gestao()
+        except Exception as exc:
+            registrar_log("Dashboard", f"Falha ao atualizar Gestao Clinica: {exc}", "WARNING")
+
+        # Aba Visao Analitica le do SQLite independentemente do CSV do Operacional.
+        try:
+            self._atualizar_dados_analitica()
+        except Exception as exc:
+            registrar_log("Dashboard", f"Falha ao atualizar Visao Analitica: {exc}", "WARNING")
+
     def _on_item_double_click(self, event):
         """Handler para duplo clique na tabela - abre visualizador"""
         item = self.tree.selection()
@@ -752,6 +1379,14 @@ class Dashboard(ctk.CTkFrame):
         if 'data_hora' not in normalized.columns:
             normalized['data_hora'] = ""
 
+        # Dedup for unique runs so they appear individually in the table
+        if 'corrida_id' in normalized.columns and not normalized['corrida_id'].isna().all():
+            normalized = normalized.drop_duplicates(subset=['corrida_id'], keep='first')
+        elif 'nome_corrida' in normalized.columns and not normalized['nome_corrida'].isna().all():
+            normalized = normalized.drop_duplicates(subset=['nome_corrida'], keep='first')
+        else:
+            normalized = normalized.drop_duplicates(subset=['data_hora', 'equipamento'], keep='first')
+
         normalized['data_hora_dt'] = self._parse_data_hora_series(normalized['data_hora'])
         invalid_dates = int(normalized['data_hora_dt'].isna().sum())
         if invalid_dates > 0:
@@ -769,7 +1404,10 @@ class Dashboard(ctk.CTkFrame):
         """Atualiza toda a interface com os dados carregados"""
         if self.df_historico is None or len(self.df_historico) == 0:
             return
-        
+
+        # Popular opções de Exame da barra de filtros Operacional
+        self._popular_exames_operacional()
+
         # Atualizar cards
         self._atualizar_cards()
         
@@ -819,47 +1457,88 @@ class Dashboard(ctk.CTkFrame):
             detalhes="Dados carregados com sucesso do HistoryReportService.",
         )
 
+    def _df_operacional(self):
+        """Retorna df_historico filtrado pelo estado da barra de filtros Operacional."""
+        df = self.df_historico
+        if df is None or len(df) == 0:
+            return df
+        st = self._filtros.get("operacional")
+        out = df.copy()
+        if 'data_hora_dt' not in out.columns:
+            out['data_hora_dt'] = self._parse_data_hora_series(out['data_hora'])
+        if not st:
+            return out
+        exame = st.get("exame", "Todos")
+        if exame and exame != "Todos" and 'exame' in out.columns:
+            out = out[out['exame'].astype(str).str.lower().str.contains(exame.lower(), na=False)]
+        ini, fim = self._janela_filtro(st)
+        if ini is not None and fim is not None and 'data_hora_dt' in out.columns:
+            d = out['data_hora_dt']
+            out = out[(d >= ini) & (d <= fim)]
+        return out
+
+    def _aplicar_filtro_operacional(self):
+        """Re-renderiza cards, gráfico e tabela do Operacional com o filtro atual."""
+        try:
+            self._atualizar_cards()
+            self._atualizar_grafico()
+            self._atualizar_tabela()
+        except Exception as exc:
+            registrar_log("Dashboard", f"Falha ao aplicar filtro Operacional: {exc}", "WARNING")
+
+    def _popular_exames_operacional(self):
+        """Preenche o dropdown de Exame do Operacional a partir do df_historico."""
+        st = self._filtros.get("operacional")
+        if not st or self.df_historico is None or 'exame' not in self.df_historico.columns:
+            return
+        exames = sorted({str(e) for e in self.df_historico['exame'].dropna().unique() if str(e).strip()})
+        self._set_exame_options(st, exames)
+
     def _atualizar_cards(self):
         """Atualiza valores dos cards de resumo"""
-        if self.df_historico is None:
+        df = self._df_operacional()
+        if df is None:
             return
-        
+
         # Total
-        total = len(self.df_historico)
+        total = len(df)
         self.cards['total'].atualizar_valor(str(total))
-        
+
         # Válidas
-        validas = len(self.df_historico[self.df_historico['status_corrida'] == 'Valida'])
+        validas = len(df[df['status_corrida'] == 'Valida']) if total else 0
         self.cards['validas'].atualizar_valor(str(validas))
-        
+
         # Alertas (avisos + inválidas)
-        alertas = len(self.df_historico[self.df_historico['status_corrida'].isin(['Aviso', 'Invalida'])])
+        alertas = len(df[df['status_corrida'].isin(['Aviso', 'Invalida'])]) if total else 0
         self.cards['alertas'].atualizar_valor(str(alertas))
-        
+
         # Última análise
-        if len(self.df_historico) > 0:
+        if total > 0:
             data_series = (
-                self.df_historico['data_hora_dt']
-                if 'data_hora_dt' in self.df_historico.columns
-                else self._parse_data_hora_series(self.df_historico['data_hora'])
+                df['data_hora_dt']
+                if 'data_hora_dt' in df.columns
+                else self._parse_data_hora_series(df['data_hora'])
             )
             ultima = data_series.max()
             if pd.isna(ultima):
                 self.cards['ultima'].atualizar_valor("--:--")
             else:
                 self.cards['ultima'].atualizar_valor(ultima.strftime("%H:%M"))
+        else:
+            self.cards['ultima'].atualizar_valor("--:--")
     
     def _atualizar_grafico(self):
         """Atualiza gráfico de tendências"""
-        if self.df_historico is None or len(self.df_historico) == 0:
-            return
-        
         # Limpar gráfico anterior
         if self.canvas_grafico:
             self.canvas_grafico.get_tk_widget().destroy()
-        
-        # Preparar dados
-        df = self.df_historico.copy()
+            self.canvas_grafico = None
+
+        # Preparar dados (já filtrados pela barra Operacional)
+        df = self._df_operacional()
+        if df is None or len(df) == 0:
+            return
+        df = df.copy()
         if 'data_hora_dt' not in df.columns:
             df['data_hora_dt'] = self._parse_data_hora_series(df['data_hora'])
         df = df[df['data_hora_dt'].notna()].copy()
@@ -906,18 +1585,19 @@ class Dashboard(ctk.CTkFrame):
     
     def _atualizar_tabela(self, event=None):
         """Atualiza tabela de análises recentes com suporte a busca"""
-        if not hasattr(self, "df_historico") or self.df_historico is None:
+        df_base = self._df_operacional()
+        if df_base is None:
             return
-            
+
         termo = ""
-        if hasattr(self, "entry_busca"):
+        if getattr(self, "entry_busca", None) is not None:
             termo = self.entry_busca.get().lower().strip()
-        
+
         # Limpar tabela
         for item in self.tree.get_children():
             self.tree.delete(item)
-        
-        df_recentes = self.df_historico.copy()
+
+        df_recentes = df_base.copy()
         if 'data_hora_dt' not in df_recentes.columns:
             df_recentes['data_hora_dt'] = self._parse_data_hora_series(df_recentes['data_hora'])
             
@@ -946,11 +1626,17 @@ class Dashboard(ctk.CTkFrame):
             status_fmt = status_map.get(row['status_corrida'], row.get('status_corrida', 'N/A'))
             
             # Inserir na tabela
+            nome_corrida = str(row.get('nome_corrida', '') or '')
+            if not nome_corrida:
+                # fallback: último segmento do corrida_id (nome do arquivo de origem)
+                cid = str(row.get('corrida_id', '') or '')
+                nome_corrida = cid.split('|')[-1].strip() if '|' in cid else cid
             self.tree.insert(
                 "",
                 "end",
                 values=(
                     data_hora_fmt,
+                    nome_corrida,
                     row['exame'],
                     row['equipamento'],
                     status_fmt,
@@ -965,27 +1651,34 @@ class Dashboard(ctk.CTkFrame):
             return
         
         valores = self.tree.item(item[0])['values']
-        data_hora = valores[0]
-        exame = valores[1]
-        equipamento = valores[2]
-        status = valores[3]
-        corrida_id = valores[4] if len(valores) > 4 else ""
-        
-        try:
-            self._abrir_detalhes_corrida(corrida_id, data_hora, exame, equipamento, status)
-        except Exception as e:
-            print(f"Erro ao abrir detalhes da corrida: {e}")
+        data_hora = valores[0] if len(valores) > 0 else ""
+        nome_corrida = valores[1] if len(valores) > 1 else ""
+        exame = valores[2] if len(valores) > 2 else ""
+        equipamento = valores[3] if len(valores) > 3 else ""
+        status = valores[4] if len(valores) > 4 else ""
+        corrida_id = valores[5] if len(valores) > 5 else ""
 
-    def _abrir_detalhes_corrida(self, corrida_id, data_hora, exame, equipamento, status):
+        try:
+            self._abrir_detalhes_corrida(corrida_id, data_hora, exame, equipamento, status, nome_corrida)
+        except Exception as e:
+            import traceback
+            registrar_log("Dashboard", f"Erro ao abrir detalhes da corrida: {e}", "WARNING")
+            print(f"Erro ao abrir detalhes da corrida: {e}\n{traceback.format_exc()}")
+
+    def _abrir_detalhes_corrida(self, corrida_id, data_hora, exame, equipamento, status, nome_corrida=""):
         # 1. Fetch data for this run
         from services.persistence.exam_runs_sqlite import ExamRunsSQLiteRepository
         repo = ExamRunsSQLiteRepository()
         rows = repo.list_rows()
         # Filter
         if corrida_id:
-            run_rows = [r for r in rows if r.get('corrida_id') == corrida_id]
+            # Fallback seguro para corrida_id que tem formatos diferentes no CSV vs DB (eg. uppercase ou espacos)
+            filename = str(corrida_id).split('|')[-1].strip() if '|' in str(corrida_id) else str(corrida_id)
+            run_rows = [r for r in rows if r.get('corrida_id') and filename in r.get('corrida_id')]
+            if not run_rows:
+                run_rows = [r for r in rows if r.get('corrida_id') == str(corrida_id)]
         else:
-            # Fallback filter
+            # Fallback filter by datetime
             run_rows = [r for r in rows if (r.get('data_exame', '') in data_hora or data_hora in r.get('data_exame', '')) and r.get('equipamento_modelo') == equipamento]
 
         if not run_rows:
@@ -994,33 +1687,45 @@ class Dashboard(ctk.CTkFrame):
             return
 
         import pandas as pd
-        df = pd.DataFrame(run_rows)
-        rename_map = {
+        df_raw = pd.DataFrame(run_rows)
+
+        # Monta uma tabela de resultados limpa: colunas centrais + Res/Ct por alvo
+        # (canonicas RES_*/CT_*), descartando snapshots SRC_* e metadados internos.
+        core_display = {
             'amostra_codigo': 'Amostra',
             'pocos': 'Poço',
             'resultado_geral': 'Resultado_Geral',
-            'status_placa': 'Status_Placa'
+            'status_placa': 'Status_Placa',
         }
-        df = df.rename(columns=rename_map)
-
-        cols_to_drop = ['id', 'corrida_id', 'exame_slug', 'equipamento_id', 'equipamento_modelo', 'data_exame', 'hora_exame', 'lote', 'criado_em', 'targets_json']
-        df = df.drop(columns=[c for c in cols_to_drop if c in df.columns], errors='ignore')
+        data = {}
+        for raw, disp in core_display.items():
+            if raw in df_raw.columns:
+                data[disp] = df_raw[raw]
+        res_cols = sorted(c for c in df_raw.columns if str(c).upper().startswith('RES_'))
+        for rc in res_cols:
+            alvo = rc[4:]
+            data[f'Res {alvo}'] = df_raw[rc]
+            ct_col = f'CT_{alvo}'
+            if ct_col in df_raw.columns:
+                data[f'Ct {alvo}'] = df_raw[ct_col]
+        df = pd.DataFrame(data)
 
         import customtkinter as ctk
-        from ui.theme.design_tokens import CORES, FONTES
-        
+        # CORES/FONTES já importados no topo do módulo (de .estilos).
+        titulo_corrida = nome_corrida or exame
+
         janela = ctk.CTkToplevel(self)
-        janela.title(f"Detalhes da Corrida - {exame}")
+        janela.title(f"Resultados da Corrida - {titulo_corrida}")
         janela.geometry("1100x650")
         janela.grab_set()
 
         header = ctk.CTkFrame(janela, fg_color=CORES['primaria'], corner_radius=0, height=80)
         header.pack(fill="x")
-        
-        lbl_title = ctk.CTkLabel(header, text=f"Resultados: {exame}", font=FONTES['titulo_grande'], text_color=CORES['branco'])
+
+        lbl_title = ctk.CTkLabel(header, text=f"Resultados: {titulo_corrida}", font=FONTES['titulo_grande'], text_color=CORES['branco'])
         lbl_title.pack(side="left", padx=20, pady=20)
-        
-        lbl_info = ctk.CTkLabel(header, text=f"{data_hora} | {equipamento} | {status}", font=FONTES['corpo'], text_color=CORES['branco'])
+
+        lbl_info = ctk.CTkLabel(header, text=f"{data_hora} | {exame} | {status}", font=FONTES['corpo'], text_color=CORES['branco'])
         lbl_info.pack(side="right", padx=20, pady=20)
 
         frame_tabela = ctk.CTkFrame(janela, fg_color="transparent")
@@ -1051,10 +1756,90 @@ class Dashboard(ctk.CTkFrame):
         
         tree.pack(side="left", fill="both", expand=True)
         scroll_y.pack(side="right", fill="y")
-        
-        # Add a close button
-        btn_fechar = ctk.CTkButton(janela, text="Fechar", command=janela.destroy, width=120, height=35)
-        btn_fechar.pack(pady=10)
+
+        # nome_corrida robusto para localizar o Mapa Definitivo
+        nc = nome_corrida or (run_rows[0].get('nome_corrida') if run_rows else "") or ""
+        if not nc and corrida_id:
+            nc = str(corrida_id).split('|')[-1].strip()
+
+        # Botões: abrir o Mapa Definitivo (.xlsx gerado na análise) e fechar
+        frame_botoes = ctk.CTkFrame(janela, fg_color="transparent")
+        frame_botoes.pack(pady=10)
+
+        def _abrir_mapa():
+            import os
+            import tkinter.messagebox as messagebox
+            caminho = self._localizar_mapa_definitivo(nc, corrida_id)
+            if caminho:
+                try:
+                    os.startfile(caminho)  # abre o Mapa Definitivo no Excel
+                except Exception as exc:
+                    messagebox.showwarning("Mapa Definitivo", f"Não foi possível abrir o arquivo:\n{exc}", parent=janela)
+            else:
+                messagebox.showinfo(
+                    "Mapa Definitivo",
+                    "Não encontrei o Mapa Definitivo (.xlsx) desta corrida na pasta de mapas.\n"
+                    "Ele é gerado na tela de Análise (botão 'Gerar Mapa Definitivo').",
+                    parent=janela,
+                )
+
+        ctk.CTkButton(frame_botoes, text="📊 Abrir Mapa Definitivo (Excel)", command=_abrir_mapa,
+                      width=230, height=35).pack(side="left", padx=6)
+        ctk.CTkButton(frame_botoes, text="Fechar", command=janela.destroy,
+                      width=120, height=35).pack(side="left", padx=6)
+
+    def _localizar_mapa_definitivo(self, nome_corrida, corrida_id=""):
+        """Procura o .xlsx do Mapa Definitivo gerado na análise para esta corrida.
+
+        Os mapas são salvos como `mapa_placa_<exame>_<placa>_<timestamp>.xlsx` em
+        `<data_root>/mapas`. A correspondência é feita normalizando o nome da
+        corrida (apenas alfanuméricos, minúsculas) e checando se está contido no
+        nome do arquivo normalizado. Retorna o caminho mais recente ou None.
+        """
+        import os
+        import re
+
+        def _norm(s):
+            return re.sub(r'[^a-z0-9]', '', str(s).lower())
+
+        chaves = []
+        if nome_corrida:
+            chaves.append(_norm(nome_corrida))
+        if corrida_id:
+            src = str(corrida_id).split('|')[-1].strip()
+            src = os.path.splitext(src)[0]
+            if src:
+                chaves.append(_norm(src))
+        chaves = [k for k in chaves if len(k) >= 4]
+        if not chaves:
+            return None
+
+        # Diretórios candidatos para a pasta de mapas
+        dirs = []
+        try:
+            from services.core.config_service import config_service
+            dr = config_service.get("data_root", "") or ""
+            if dr:
+                dirs.append(os.path.join(dr, "mapas"))
+        except Exception:
+            pass
+        dirs.extend([os.path.join("dados", "mapas"), "mapas"])
+
+        candidatos = []
+        for d in dirs:
+            if not d or not os.path.isdir(d):
+                continue
+            for fn in os.listdir(d):
+                if not fn.lower().endswith(".xlsx"):
+                    continue
+                nfn = _norm(fn)
+                if any(k in nfn for k in chaves):
+                    candidatos.append(os.path.join(d, fn))
+
+        if not candidatos:
+            return None
+        candidatos.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return candidatos[0]
     
     def _abrir_graficos(self):
         """Abre tela de graficos no modo pagina ou janela legado."""

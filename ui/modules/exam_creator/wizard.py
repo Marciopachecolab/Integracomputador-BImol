@@ -72,6 +72,17 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
         )
         self.btn_next.pack(side="right", padx=10)
 
+        # Botao central para apagar/recomecar a etapa atual quando o operador
+        # inseriu uma informacao errada e quer refaze-la sem afetar as demais etapas.
+        self.btn_clear = ctk.CTkButton(
+            self.nav_frame,
+            text="🗑 Limpar Etapa",
+            fg_color="#b8860b",
+            hover_color="#9a7209",
+            command=self.clear_current_step,
+        )
+        self.btn_clear.pack(side="left", expand=True)
+
         self.render_step_1()
 
     def _close_page(self) -> None:
@@ -100,6 +111,29 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
     def _pocos_selector_values(self) -> list[str]:
         return [str(i) for i in range(1, self._selected_pocos() + 1)]
 
+    def _load_equipment_options(self) -> list[str]:
+        """Retorna equipment_ids ativos dos contratos de equipamento."""
+        import json as _json
+        from pathlib import Path as _Path
+        try:
+            from services.system_paths import BASE_DIR as _BASE
+            contracts = _Path(_BASE) / "config" / "contracts" / "equipment"
+            opts = []
+            for p in sorted(contracts.iterdir()):
+                if p.name.startswith("template") or p.suffix != ".json":
+                    continue
+                try:
+                    data = _json.loads(p.read_text(encoding="utf-8"))
+                    if data.get("active", True):
+                        opts.append(str(data.get("equipment_id", p.stem)))
+                except Exception:
+                    pass
+            if opts:
+                return opts
+        except Exception:
+            pass
+        return ["7500_extended", "quantstudio"]
+
     def _ct_target_key(self, alvo: str, poco: int) -> str:
         return f"{alvo}|P{poco}"
 
@@ -109,57 +143,77 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
         self.btn_prev.configure(state="disabled")
         self.btn_next.configure(text="Próximo >")
 
-        ctk.CTkLabel(self.content_frame, text="Nome do Exame (Visivel):").pack(pady=5)
-        self.ent_name = ctk.CTkEntry(
-            self.content_frame,
-            width=400,
-            placeholder_text="Ex: Painel Respiratorio 2026",
+        # Formulario compacto em grade de 2 colunas para caber sem rolagem.
+        form = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        form.pack(fill="x", padx=10, pady=(4, 6))
+        form.grid_columnconfigure(1, weight=1)
+        form.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkLabel(form, text="Nome do Exame (Visivel):", anchor="w").grid(
+            row=0, column=0, sticky="w", padx=(0, 8), pady=3
         )
-        self.ent_name.pack(pady=5)
+        self.ent_name = ctk.CTkEntry(form, placeholder_text="Ex: Painel Respiratorio 2026")
+        self.ent_name.grid(row=0, column=1, columnspan=3, sticky="ew", pady=3)
         if self.exam_data.get("display_name"):
             self.ent_name.insert(0, str(self.exam_data["display_name"]))
 
-        ctk.CTkLabel(self.content_frame, text="ID do Protocolo (Sistema):").pack(pady=5)
-        self.ent_id = ctk.CTkEntry(
-            self.content_frame,
-            width=400,
-            placeholder_text="Ex: pnl_resp_2026",
+        ctk.CTkLabel(form, text="ID do Protocolo (Sistema):", anchor="w").grid(
+            row=1, column=0, sticky="w", padx=(0, 8), pady=3
         )
-        self.ent_id.pack(pady=5)
+        self.ent_id = ctk.CTkEntry(form, placeholder_text="Ex: pnl_resp_2026")
+        self.ent_id.grid(row=1, column=1, columnspan=3, sticky="ew", pady=3)
         if self.exam_data.get("id"):
             self.ent_id.insert(0, str(self.exam_data["id"]))
 
-        ctk.CTkLabel(self.content_frame, text="Versao:").pack(pady=5)
-        self.ent_ver = ctk.CTkEntry(self.content_frame, width=100)
-        self.ent_ver.pack(pady=5)
+        ctk.CTkLabel(form, text="Versao:", anchor="w").grid(
+            row=2, column=0, sticky="w", padx=(0, 8), pady=3
+        )
+        self.ent_ver = ctk.CTkEntry(form, width=120)
+        self.ent_ver.grid(row=2, column=1, sticky="w", pady=3)
         self.ent_ver.insert(0, str(self.exam_data.get("version", "1.0") or "1.0"))
 
-        ctk.CTkLabel(self.content_frame, text="Pocos por amostra (1..4):").pack(pady=5)
-        self.cmb_pocos = ctk.CTkComboBox(self.content_frame, values=self._pocos_values(), width=100)
-        self.cmb_pocos.pack(pady=5)
+        ctk.CTkLabel(form, text="Pocos por amostra (1..4):", anchor="w").grid(
+            row=2, column=2, sticky="w", padx=(16, 8), pady=3
+        )
+        self.cmb_pocos = ctk.CTkComboBox(form, values=self._pocos_values(), width=120)
+        self.cmb_pocos.grid(row=2, column=3, sticky="w", pady=3)
         self.cmb_pocos.set(str(self.exam_data.get("pocos_por_amostra", 1) or 1))
+
+        ctk.CTkLabel(form, text="Equipamento (extração de arquivo):", anchor="w").grid(
+            row=3, column=0, sticky="w", padx=(0, 8), pady=3
+        )
+        self.cmb_equip = ctk.CTkComboBox(form, values=self._load_equipment_options(), width=200)
+        self.cmb_equip.grid(row=3, column=1, sticky="w", pady=3)
+        self.cmb_equip.set(str(self.exam_data.get("equipamento", "7500_extended") or "7500_extended"))
+
+        ctk.CTkLabel(form, text="Tipo de Placa Analítica:", anchor="w").grid(
+            row=3, column=2, sticky="w", padx=(16, 8), pady=3
+        )
+        self.cmb_placa = ctk.CTkComboBox(form, values=["96", "48", "36"], width=120)
+        self.cmb_placa.grid(row=3, column=3, sticky="w", pady=3)
+        self.cmb_placa.set(str(self.exam_data.get("tipo_placa_analitica", "96") or "96"))
 
         edit_label = (
             f"Editando exame existente: {self._editing_slug}"
             if self._editing_slug
             else "Modo atual: Novo exame"
         )
-        ctk.CTkLabel(self.content_frame, text=edit_label).pack(pady=(10, 4))
+        ctk.CTkLabel(self.content_frame, text=edit_label).pack(pady=(6, 2), anchor="w", padx=10)
 
         registry_frame = ctk.CTkFrame(self.content_frame)
-        registry_frame.pack(fill="x", expand=False, padx=10, pady=(4, 8))
+        registry_frame.pack(fill="both", expand=True, padx=10, pady=(2, 6))
 
         ctk.CTkLabel(
             registry_frame,
             text="Exames já cadastrados (seleção com barra rolante):",
-        ).pack(anchor="w", padx=8, pady=(8, 4))
+        ).pack(anchor="w", padx=8, pady=(6, 2))
 
         list_container = ctk.CTkFrame(registry_frame)
-        list_container.pack(fill="x", expand=False, padx=8, pady=(0, 8))
+        list_container.pack(fill="both", expand=True, padx=8, pady=(0, 6))
 
         self.listbox_registry = tk.Listbox(
             list_container,
-            height=5,
+            height=4,
             font=("Consolas", 11),
             exportselection=False,
         )
@@ -496,6 +550,15 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
             "pocos_por_amostra": pocos,
             "targets": list(mapped_targets),
             "ct_thresholds": list(mapped_ct),
+            # Campos de identificacao do equipamento
+            "equipamento": str(getattr(cfg, "equipamento", "") or ""),
+            "tipo_placa_analitica": str(getattr(cfg, "tipo_placa_analitica", "") or ""),
+            # Campos de integracao GAL
+            "gal_exame_codigo": str(getattr(cfg, "gal_exame_codigo", "") or ""),
+            "kit_codigo": str(getattr(cfg, "kit_codigo", "") or ""),
+            "panel_tests_id": str(getattr(cfg, "panel_tests_id", "") or ""),
+            "export_fields": list(getattr(cfg, "export_fields", []) or []),
+            "export_mapping": self._build_export_mapping_from_cfg(cfg),
         }
         self.temp_targets = list(mapped_targets)
         self.temp_ct_thresholds = list(mapped_ct)
@@ -565,7 +628,7 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
         self.clear_content()
         self.lbl_step.configure(text="Passo 3: Faixas de CT por Alvo")
         self.btn_prev.configure(state="normal")
-        self.btn_next.configure(text="Salvar")
+        self.btn_next.configure(text="Próximo >")
 
         self._seed_ct_thresholds_for_missing_targets()
         self._ct_entries: list[dict] = []
@@ -927,6 +990,40 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
             "controles": {"cn": controls_cn, "cp": controls_cp},
         }
 
+    def clear_current_step(self) -> None:
+        """Apaga apenas os dados da etapa atual e re-renderiza, sem afetar as outras."""
+        step = self.current_step
+        if not messagebox.askyesno(
+            "Limpar Etapa",
+            f"Apagar as informações do Passo {step} e recomeçar esta etapa?",
+            parent=self.dialog_parent,
+        ):
+            return
+
+        if step == 1:
+            for key in (
+                "display_name", "id", "version",
+                "equipamento", "tipo_placa_analitica", "pocos_por_amostra",
+            ):
+                self.exam_data.pop(key, None)
+            self.render_step_1()
+        elif step == 2:
+            self.temp_targets = []
+            self.exam_data.pop("targets", None)
+            self.render_step_2()
+        elif step == 3:
+            self.temp_ct_thresholds = []
+            self.exam_data.pop("ct_thresholds", None)
+            self.render_step_3()
+        elif step == 4:
+            self._export_entries = []
+            for key in (
+                "gal_exame_codigo", "kit_codigo", "panel_tests_id",
+                "export_fields", "export_mapping",
+            ):
+                self.exam_data.pop(key, None)
+            self.render_step_4()
+
     def next_step(self) -> None:
         if self.current_step == 1:
             if not self.ent_name.get().strip() or not self.ent_id.get().strip():
@@ -948,6 +1045,8 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
             self.exam_data["id"] = self.ent_id.get().strip()
             self.exam_data["version"] = self.ent_ver.get().strip() or "1.0"
             self.exam_data["pocos_por_amostra"] = pocos
+            self.exam_data["equipamento"] = self.cmb_equip.get().strip()
+            self.exam_data["tipo_placa_analitica"] = self.cmb_placa.get().strip() or "96"
 
             self.current_step = 2
             self.render_step_2()
@@ -970,6 +1069,28 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
                 messagebox.showerror("Erro", msg, parent=self.dialog_parent)
                 return
             self.exam_data["ct_thresholds"] = list(self.temp_ct_thresholds)
+            self.current_step = 4
+            self.render_step_4()
+            return
+
+        if self.current_step == 4:
+            self._collect_gal_from_step4()
+            missing = []
+            if not self.exam_data.get("gal_exame_codigo"):
+                missing.append("Código do Exame no GAL")
+            if not self.exam_data.get("kit_codigo"):
+                missing.append("Código do Kit")
+            if not self.exam_data.get("export_fields"):
+                missing.append("Analitos no GAL (export_fields)")
+            if missing:
+                if not messagebox.askyesno(
+                    "Campos GAL incompletos",
+                    "Os seguintes campos estão vazios:\n  • "
+                    + "\n  • ".join(missing)
+                    + "\n\nO exame NÃO estará pronto para envio ao GAL.\nSalvar mesmo assim?",
+                    parent=self.dialog_parent,
+                ):
+                    return
             self.save_exam()
 
     def prev_step(self) -> None:
@@ -982,6 +1103,138 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
             self.current_step = 2
             self.render_step_2()
             return
+        if self.current_step == 4:
+            self._collect_gal_from_step4()
+            self.current_step = 3
+            self.render_step_3()
+            return
+
+    def render_step_4(self) -> None:
+        self.clear_content()
+        self.lbl_step.configure(text="Passo 4: Integração GAL")
+        self.btn_prev.configure(state="normal")
+        self.btn_next.configure(text="Salvar")
+
+        ctk.CTkLabel(
+            self.content_frame,
+            text="Código do Exame no GAL (gal_exame_codigo):",
+        ).pack(pady=(10, 2))
+        ctk.CTkLabel(
+            self.content_frame,
+            text="Usado como codExame na busca de metadados. Ex: VRSRT, PEQZDC",
+            font=("Arial", 10),
+        ).pack()
+        self.ent_gal_codigo = ctk.CTkEntry(self.content_frame, width=300)
+        self.ent_gal_codigo.pack(pady=5)
+        self.ent_gal_codigo.insert(0, str(self.exam_data.get("gal_exame_codigo", "") or ""))
+
+        ctk.CTkLabel(self.content_frame, text="Código do Kit GAL (kit_codigo):").pack(pady=(10, 2))
+        self.ent_kit = ctk.CTkEntry(
+            self.content_frame, width=200, placeholder_text="Ex: 1175"
+        )
+        self.ent_kit.pack(pady=5)
+        self.ent_kit.insert(0, str(self.exam_data.get("kit_codigo", "") or ""))
+
+        ctk.CTkLabel(self.content_frame, text="ID do Painel GAL (panel_tests_id):").pack(pady=(10, 2))
+        ctk.CTkLabel(
+            self.content_frame,
+            text="Identifica o painel no envio de resultados. Ex: 12, zdcbm",
+            font=("Arial", 10),
+        ).pack()
+        self.ent_panel = ctk.CTkEntry(self.content_frame, width=200)
+        self.ent_panel.pack(pady=5)
+        self.ent_panel.insert(0, str(self.exam_data.get("panel_tests_id", "") or ""))
+
+        ctk.CTkLabel(
+            self.content_frame,
+            text="Mapeamento Alvo → Nome no GAL (export_fields):",
+            font=("Arial", 12, "bold"),
+        ).pack(pady=(15, 2))
+        ctk.CTkLabel(
+            self.content_frame,
+            text="Informe como cada alvo é reportado no CSV do GAL. Deixe em branco para usar o nome interno.",
+            font=("Arial", 10),
+        ).pack()
+
+        alvos_unicos: list[str] = []
+        _seen: set[str] = set()
+        for item in self.temp_targets:
+            name = str(item.get("name", "")).strip()
+            if name and name not in _seen and item.get("type", "") != "CONTROL_EXTERNAL":
+                alvos_unicos.append(name)
+                _seen.add(name)
+
+        prev_mapping: dict[str, str] = self.exam_data.get("export_mapping", {})  # type: ignore[assignment]
+
+        self._export_entries: list[dict[str, Any]] = []
+
+        header_row = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        header_row.pack(fill="x", padx=5, pady=(8, 0))
+        ctk.CTkLabel(
+            header_row, text="Alvo Interno", font=("Arial", 11, "bold"), width=200, anchor="w"
+        ).pack(side="left", padx=10)
+        ctk.CTkLabel(
+            header_row, text="→  Nome no GAL", font=("Arial", 11, "bold"), width=250, anchor="w"
+        ).pack(side="left", padx=10)
+
+        ScrollableFrame = getattr(ctk, "CTkScrollableFrame", ctk.CTkFrame)
+        scroll = ScrollableFrame(self.content_frame, height=200, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=5, pady=5)
+
+        for alvo in alvos_unicos:
+            row_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            row_fr.pack(fill="x", pady=2)
+            ctk.CTkLabel(row_fr, text=alvo, width=200, anchor="w").pack(side="left", padx=10)
+            ent = ctk.CTkEntry(row_fr, width=250, placeholder_text=alvo)
+            ent.pack(side="left", padx=10)
+            prev_val = prev_mapping.get(alvo, "")
+            if prev_val:
+                ent.insert(0, prev_val)
+            self._export_entries.append({"alvo": alvo, "entry": ent})
+
+        if not alvos_unicos:
+            ctk.CTkLabel(
+                self.content_frame,
+                text="Nenhum alvo cadastrado. Volte ao Passo 2 e adicione alvos.",
+                text_color="orange",
+            ).pack(pady=10)
+
+    def _collect_gal_from_step4(self) -> None:
+        """Lê campos do Passo 4 e atualiza exam_data. Idempotente."""
+        if hasattr(self, "ent_gal_codigo"):
+            self.exam_data["gal_exame_codigo"] = self.ent_gal_codigo.get().strip()
+        if hasattr(self, "ent_kit"):
+            self.exam_data["kit_codigo"] = self.ent_kit.get().strip()
+        if hasattr(self, "ent_panel"):
+            self.exam_data["panel_tests_id"] = self.ent_panel.get().strip()
+
+        if hasattr(self, "_export_entries"):
+            mapping: dict[str, str] = {}
+            for row in self._export_entries:
+                alvo = row["alvo"]
+                val = str(row["entry"].get()).strip()
+                mapping[alvo] = val if val else alvo
+            self.exam_data["export_mapping"] = mapping
+            self.exam_data["export_fields"] = list(mapping.values())
+
+    @staticmethod
+    def _build_export_mapping_from_cfg(cfg: Any) -> dict[str, str]:
+        """Reconstrói {alvo_interno: nome_no_gal} de um ExamConfig existente."""
+        alvos = list(getattr(cfg, "alvos", []) or [])
+        mapa_alvos = dict(getattr(cfg, "mapa_alvos", {}) or {})
+
+        # entradas não-identidade em mapa_alvos: {GAL_KEY: alvo_interno}
+        internal_to_gal: dict[str, str] = {}
+        for k, v in mapa_alvos.items():
+            k_s = str(k).strip()
+            v_s = str(v).strip()
+            if k_s.upper() != v_s.upper():
+                internal_to_gal[v_s.upper()] = k_s  # alvo_upper → nome_gal
+
+        result: dict[str, str] = {}
+        for alvo in alvos:
+            result[alvo] = internal_to_gal.get(alvo.upper(), "")
+        return result
 
     def _save_exam_legacy(self) -> None:
         targets_configuration: dict[str, dict[str, str]] = {}
@@ -1057,21 +1310,79 @@ class ExamCreatorWizardPage(ctk.CTkFrame):
         version = str(self.exam_data.get("version", "") or "").strip()
         pocos_por_amostra = int(self.exam_data.get("pocos_por_amostra", 1) or 1)
 
+        # Campos capturados no Passo 1 (identificacao)
+        equipamento_new = str(self.exam_data.get("equipamento", "") or "").strip()
+        tipo_placa_new = str(self.exam_data.get("tipo_placa_analitica", "") or "").strip()
+
+        # Campos capturados no Passo 4 (integracao GAL)
+        gal_codigo_new = str(self.exam_data.get("gal_exame_codigo", "") or "").strip()
+        kit_new = str(self.exam_data.get("kit_codigo", "") or "").strip()
+        panel_new = str(self.exam_data.get("panel_tests_id", "") or "").strip()
+
+        export_mapping: dict = self.exam_data.get("export_mapping", {}) or {}  # type: ignore[assignment]
+        export_fields_new = [str(v) for v in export_mapping.values() if str(v).strip()]
+        if not export_fields_new:
+            export_fields_new = list(self.exam_data.get("export_fields", []) or [])
+
+        # mapa_alvos: identidade dos alvos (legado) + GAL_KEY→alvo p/ normalize_target
+        mapa_alvos: dict[str, str] = dict(legacy["mapa_alvos"])
+        for alvo, nome_gal in export_mapping.items():
+            gal_s = str(nome_gal).strip()
+            if gal_s and gal_s.upper() != str(alvo).upper():
+                mapa_alvos[gal_s.upper()] = str(alvo)
+
+        # Preserva campos do registry ao reeditar (fallback se campo novo vier vazio)
+        preserved: dict[str, Any] = {}
+        existing_found = False
+        try:
+            from services.exam_registry import registry as _registry
+
+            if not getattr(_registry, "exams", None):
+                _registry.load()
+            existing_cfg = _registry.get(display_name) or _registry.get(protocol_id)
+            if existing_cfg is not None:
+                existing_found = True
+                preserved = {
+                    "gal_exame_codigo": str(getattr(existing_cfg, "gal_exame_codigo", "") or ""),
+                    "panel_tests_id": str(getattr(existing_cfg, "panel_tests_id", "") or ""),
+                    "kit_codigo": str(getattr(existing_cfg, "kit_codigo", "") or ""),
+                    "export_fields": list(getattr(existing_cfg, "export_fields", []) or []),
+                    "equipamento": str(getattr(existing_cfg, "equipamento", "") or ""),
+                    "tipo_placa_analitica": str(getattr(existing_cfg, "tipo_placa_analitica", "") or ""),
+                }
+        except Exception:
+            existing_found = False
+
+        def _pick(new_val: str, key: str, default: str = "") -> str:
+            if new_val:
+                return new_val
+            if existing_found and preserved.get(key):
+                return str(preserved[key])
+            return default
+
+        def _pick_list(new_val: list, key: str) -> list:
+            if new_val:
+                return new_val
+            if existing_found and preserved.get(key):
+                return list(preserved[key])
+            return []
+
         return ExamConfig(
             nome_exame=display_name,
             slug=protocol_id,
-            equipamento="7500",
-            tipo_placa_analitica="96",
+            equipamento=_pick(equipamento_new, "equipamento", "7500_extended"),
+            tipo_placa_analitica=_pick(tipo_placa_new, "tipo_placa_analitica", "96"),
             esquema_agrupamento={1: "96->96", 2: "96->48", 3: "96->32", 4: "96->24"}.get(
                 pocos_por_amostra, "96->96"
             ),
-            kit_codigo="",
+            kit_codigo=_pick(kit_new, "kit_codigo"),
             alvos=legacy["alvos"],
-            mapa_alvos=legacy["mapa_alvos"],
+            mapa_alvos=mapa_alvos,
             faixas_ct=legacy["faixas_ct"],
             rps=legacy["rps"],
-            export_fields=[],
-            panel_tests_id=protocol_id,
+            export_fields=_pick_list(export_fields_new, "export_fields"),
+            panel_tests_id=_pick(panel_new, "panel_tests_id"),
+            gal_exame_codigo=_pick(gal_codigo_new, "gal_exame_codigo"),
             controles=legacy["controles"],
             comentarios="Cadastro via wizard V2 compat mode",
             versao_protocolo=version,

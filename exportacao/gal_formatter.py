@@ -302,7 +302,7 @@ def _build_base_dataframe(
     df_out["exame"] = exam_value
     df_out["metodo"] = "RTTR"
     df_out["registroInterno"] = cod_col
-    df_out["kit"] = str(cfg.kit_codigo or "427")
+    df_out["kit"] = str(getattr(cfg, "kit_codigo", "1175") or "1175")
     df_out["reteste"] = ""
     df_out["loteKit"] = ""
     df_out["dataProcessamentoFim"] = datetime.now().strftime("%d/%m/%Y")
@@ -559,7 +559,7 @@ def formatar_para_gal(df, exam_cfg=None, exame: str | None = None):
     df_out = _build_gal_dataframe_core(
         df_resultados=df,
         cfg=cfg,
-        panel_value=cfg.panel_tests_id or "1",
+        panel_value=cfg.panel_tests_id or "12",
         exam_value=_resolve_exam_export_value(cfg),
         include_only_exportable=True,
         emit_debug_logs=False,
@@ -613,7 +613,7 @@ def gerar_painel_csvs(df_resultados, exam_cfg=None, exame: str | None = None, ou
 
     cfg = exam_cfg or (get_exam_cfg(exame) if exame else get_exam_cfg(""))
     contract_runtime = _resolve_gal_contract_runtime(cfg)
-    panel_id = cfg.panel_tests_id or "1"
+    panel_id = cfg.panel_tests_id or "12"
     df_painel = _build_gal_dataframe_core(
         df_resultados=df_resultados,
         cfg=cfg,

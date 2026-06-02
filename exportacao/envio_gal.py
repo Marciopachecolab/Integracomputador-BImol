@@ -144,6 +144,20 @@ DEFAULT_PANEL_TESTS = {
 }
 
 
+def _norm_gal_field(val: str) -> str:
+    """Normaliza nome de campo GAL: minúsculas, sem acentos, sem separadores.
+
+    Replica a regra de exportacao.gal_formatter._normalize_export_column_name
+    sem importar aquele módulo (evita dependência circular).
+    """
+    import unicodedata as _ud
+
+    return (
+        _ud.normalize("NFKD", str(val)).encode("ASCII", "ignore").decode("ASCII")
+        .replace(" ", "").replace("-", "").replace("_", "").lower()
+    )
+
+
 # ==============================================================================
 # 1. DECORATOR DE RETENTATIVA
 # ==============================================================================
@@ -584,7 +598,7 @@ class GalService:
         
         from datetime import datetime, timedelta
         hoje = datetime.now()
-        dt_inicio_str = (hoje - timedelta(days=365)).strftime("%d/%m/%Y")
+        dt_inicio_str = (hoje - timedelta(days=15)).strftime("%d/%m/%Y")
         dt_fim_str = hoje.strftime("%d/%m/%Y")
         
         payload_inicial = {"limit": limit, "start": 0, "dtInicio": dt_inicio_str, "dtFim": dt_fim_str}
@@ -665,11 +679,23 @@ class GalService:
             for start in range(limit, total, limit):
                 futures.append(executor.submit(_process_page, start))
                 
+            # S5: Acumular falhas de páginas para aviso explícito ao final
+            failed_pages: list = []
             for future in as_completed(futures):
                 try:
                     future.result()
                 except Exception as e:
-                    self.log(f"Erro ao buscar página de metadados: {e}", "error")
+                    failed_pages.append(str(e))
+
+            if failed_pages:
+                sample = "; ".join(failed_pages[:3])
+                suffix = f"... (+{len(failed_pages) - 3} outras)" if len(failed_pages) > 3 else ""
+                self.log(
+                    f"[S5] AVISO: {len(failed_pages)} pagina(s) de metadados nao carregaram. "
+                    f"Algumas amostras podem aparecer como 'nao_encontrado'. "
+                    f"Detalhes: {sample}{suffix}",
+                    "warning",
+                )
 
         self.log(
             f"Busca de metadados finalizada: {len(encontrados)} encontrados.", "info"
@@ -709,6 +735,15 @@ class GalService:
             painel = _to_int(painel_row) or 1
 
         testes_do_painel = self.panel_tests.get(str(painel), [])
+
+        # Fallback: quando o painel nao esta na config GAL e o exame tem
+        # export_fields definido, deriva os testes a partir dele.
+        # Isso garante que exames novos (sem entrada em DEFAULT_PANEL_TESTS /
+        # gal_config.panel_tests) enviem os campos corretos sem editar config.json.
+        if not testes_do_painel and exam_cfg:
+            raw_ef = list(getattr(exam_cfg, "export_fields", []) or [])
+            if raw_ef:
+                testes_do_painel = [_norm_gal_field(f) for f in raw_ef if str(f).strip()]
 
         # Montagem de resultados
         resultados: Dict[str, Any] = {"resultado": None}
@@ -767,8 +802,13 @@ class GalService:
             else None
         )
 
+        # codigo = codigoAmostra quando meta vazio (modo sem metadados ou metadata ausente).
+        # O GAL localiza o registro pelo par codigo+gal_exame_codigo — ambos sempre disponíveis.
+        _codigo_meta = str(meta.get("codigo", "") or "").strip()
+        _codigo_final = _codigo_meta if _codigo_meta else codigo_amostra
+
         return {
-            "codigo": str(meta.get("codigo", "")),
+            "codigo": _codigo_final,
             "requisicao": meta.get("requisicao", ""),
             "paciente": meta.get("paciente", ""),
             "exame": exame,
@@ -962,8 +1002,16 @@ class GalService:
                 f"Erro no envio de {ca}: {msg}. A iniciar validação de campos.", "error"
             )
             try:
+                # S14: Mascarar campos identificáveis antes de logar resposta do servidor
+                _SENSITIVE_KEYS = frozenset(
+                    ("paciente", "nomePaciente", "patient", "nome", "_raw")
+                )
+                safe_response = {
+                    k: ("***" if k in _SENSITIVE_KEYS else v)
+                    for k, v in response.items()
+                } if isinstance(response, dict) else response
                 self.log(
-                    f"Resposta completa do servidor para {ca}: {response}", "warning"
+                    f"Resposta completa do servidor para {ca}: {safe_response}", "warning"
                 )
             except Exception:
                 pass
