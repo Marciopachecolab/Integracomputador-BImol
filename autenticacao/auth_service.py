@@ -20,7 +20,7 @@ import csv
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -88,6 +88,13 @@ _USER_DEFAULTS = {
     "bloqueado_ate": "",
     "preferencias": "{}",
 }
+
+
+# === Politica de lockout server-side (DHP Fase 5) ===
+# Fonte: docs/specs/decisoes_humanas/DHP-senha-lockout.md
+# Constituicao: .specify/memory/constitution.delta.md §3.1 (lockout MUST)
+MAX_TENTATIVAS_FALHAS = 5
+BLOQUEIO_DURACAO_MINUTOS = 15
 
 
 def _normalize_username(value: object) -> str:
@@ -664,6 +671,86 @@ class AuthService:
             "ultimo_acesso": row.get("ultimo_acesso", ""),
         }
 
+    def _persistir_estado_tentativas(
+        self,
+        df: pd.DataFrame,
+        usuario_norm: str,
+        *,
+        sucesso: bool,
+    ) -> Optional[str]:
+        """Persiste tentativas_falhas/bloqueado_ate apos uma tentativa de login.
+
+        Politica de lockout server-side (DHP Fase 5):
+        - sucesso=True  -> zera tentativas_falhas, limpa bloqueado_ate e atualiza
+          ultimo_acesso.
+        - sucesso=False -> incrementa tentativas_falhas; ao atingir
+          MAX_TENTATIVAS_FALHAS, define bloqueado_ate = now + BLOQUEIO_DURACAO_MINUTOS.
+
+        A persistencia atualiza APENAS a linha do usuario via
+        ``UserRepository.update`` (escrita sob CSVFileLock no adapter CSV; sem
+        semantica de delete-missing do snapshot completo). Passa ``""`` em
+        ``locked_until`` para LIMPAR o bloqueio (``None`` significaria "sem
+        alteracao" no contrato). Nunca registra senha em log.
+
+        Args:
+            df: DataFrame de usuarios ja carregado (fonte do id/contador atual).
+            usuario_norm: usuario normalizado (strip + lower).
+            sucesso: indica se a autenticacao bcrypt teve sucesso.
+
+        Returns:
+            Em sucesso, o timestamp ISO de ultimo_acesso gravado; caso contrario None.
+        """
+        mask = df["usuario"].astype(str).str.strip().str.lower() == usuario_norm
+        if not mask.any():
+            return None  # usuario sumiu entre leitura e escrita; nada a persistir
+
+        idx = df[mask].index[0]
+        repo = self._get_user_repo()
+        user_id = str(df.at[idx, "id"] or "").strip()
+        if not user_id:
+            # Linha legada sem id no df: resolve via repositorio por username.
+            try:
+                user_id = str(repo.get_by_username(usuario_norm).id or "").strip()
+            except Exception:
+                user_id = ""
+            if not user_id:
+                registrar_log(
+                    "AuthService",
+                    f"Lockout nao persistido (id ausente): {usuario_norm}",
+                    "WARNING",
+                )
+                return None
+
+        if sucesso:
+            ultimo_acesso = datetime.now().isoformat()
+            repo.update(
+                user_id,
+                UserUpdateDTO(
+                    failed_attempts=0,
+                    locked_until="",
+                    last_access=ultimo_acesso,
+                ),
+            )
+            return ultimo_acesso
+
+        atual = _safe_int(df.at[idx, "tentativas_falhas"], 0)
+        novo = atual + 1
+        locked_until: Optional[str] = None
+        if novo >= MAX_TENTATIVAS_FALHAS:
+            expira = datetime.now() + timedelta(minutes=BLOQUEIO_DURACAO_MINUTOS)
+            locked_until = expira.isoformat()
+            registrar_log(
+                "AuthService",
+                f"Conta bloqueada por {BLOQUEIO_DURACAO_MINUTOS}min apos "
+                f"{novo} tentativas falhas: {usuario_norm}",
+                "WARNING",
+            )
+        repo.update(
+            user_id,
+            UserUpdateDTO(failed_attempts=novo, locked_until=locked_until),
+        )
+        return None
+
     def autenticar_credenciais(
         self, usuario: str, senha_fornecida: str
     ) -> Optional[dict]:
@@ -672,6 +759,11 @@ class AuthService:
 
         Este metodo evita duas leituras consecutivas de `usuarios.csv`
         (verificar_senha + obter_usuario), reduzindo latencia no login.
+
+        Aplica lockout server-side (DHP Fase 5): bloqueio temporario apos
+        MAX_TENTATIVAS_FALHAS tentativas falhas, com auto-desbloqueio na
+        expiracao de bloqueado_ate. Retorna sempre None em qualquer falha
+        (mensagem generica na UI - OWASP A07).
         """
         try:
             df = self.load_users_df()
@@ -709,6 +801,25 @@ class AuthService:
                 return None
 
             row = credenciais_usuario.iloc[0]
+            usuario_norm = _normalize_username(usuario)
+
+            # === LOCKOUT CHECK (Fase 5 / DHP) ===
+            # Avaliado ANTES do bcrypt para evitar timing leak e enumeracao.
+            bloqueado_ate_str = str(row.get("bloqueado_ate", "") or "").strip()
+            if bloqueado_ate_str:
+                try:
+                    expira = datetime.fromisoformat(bloqueado_ate_str)
+                    if expira > datetime.now():
+                        registrar_log(
+                            "AuthService",
+                            f"Tentativa em conta bloqueada: {usuario_norm}",
+                            "WARNING",
+                        )
+                        return None  # OWASP A07: mensagem generica na UI
+                except ValueError:
+                    # timestamp malformado: ignora bloqueio e segue validacao normal
+                    pass
+
             hash_armazenado_str = row.get("senha_hash", "")
             hash_armazenado_bytes = (
                 hash_armazenado_str.encode("utf-8")
@@ -719,12 +830,39 @@ class AuthService:
             try:
                 senha_ok = bcrypt.checkpw(senha_fornecida_bytes, hash_armazenado_bytes)
             except ValueError as exc:
+                # Hash armazenado malformado (corrupcao de dados): nao conta como
+                # tentativa do usuario para evitar bloqueio por defeito de dados.
                 registrar_log("AuthService", f"Erro no bcrypt checkpw: {exc}", "ERROR")
                 return None
 
             if not senha_ok:
+                # === FALHA: incrementa contador (pode bloquear) ===
+                try:
+                    self._persistir_estado_tentativas(df, usuario_norm, sucesso=False)
+                except Exception as exc:
+                    registrar_log(
+                        "AuthService",
+                        f"Falha ao incrementar contador de tentativas: {exc}",
+                        "ERROR",
+                    )
                 registrar_log("AuthService", "Resultado da autenticacao: Falha", "INFO")
                 return None
+
+            # === SUCESSO: reseta contador e atualiza ultimo_acesso ===
+            ultimo_acesso_atual = str(row.get("ultimo_acesso", "") or "")
+            try:
+                novo_ultimo_acesso = self._persistir_estado_tentativas(
+                    df, usuario_norm, sucesso=True
+                )
+                if novo_ultimo_acesso:
+                    ultimo_acesso_atual = novo_ultimo_acesso
+            except Exception as exc:
+                # Falha ao persistir reset nao deve bloquear um login valido.
+                registrar_log(
+                    "AuthService",
+                    f"Falha ao resetar contador em sucesso (login mantido): {exc}",
+                    "ERROR",
+                )
 
             registrar_log("AuthService", "Resultado da autenticacao: Sucesso", "INFO")
             return {
@@ -732,7 +870,7 @@ class AuthService:
                 "nivel_acesso": row.get("nivel_acesso", "DIAGNOSTICO"),
                 "status": row.get("status", "ATIVO"),
                 "data_criacao": row.get("data_criacao", ""),
-                "ultimo_acesso": row.get("ultimo_acesso", ""),
+                "ultimo_acesso": ultimo_acesso_atual,
             }
         except Exception as exc:
             registrar_log(

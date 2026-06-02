@@ -258,6 +258,22 @@ admin reset via UI (matriz `users.mutate`); senha min 8 chars (mantido do legado
 hash bcrypt mantido; feedback UI genérico (OWASP A07); complexidade extra deferida p/ Fase 9.
 Pré-requisito de T-051..T-053 (Fase 5 Audit Refactoring).
 
+### T-051-FIND-SQLITE — Lockout não persiste no backend SQLite
+
+**Data:** 2026-06-02
+**Descoberta:** Fase 5 (T-052, validação adversária da persistência)
+**Severidade:** Média (fail-open SOMENTE se `storage_backend` for trocado para `sqlite`)
+**Status:** [ ] Pendente (não-bloqueante — backend ativo é `csv`)
+**Detalhe:** `SQLiteUserRepositoryAdapter.update` (services/persistence/persistence_adapters.py)
+mapeia apenas `nivel_acesso/senha_hash/ultimo_login/ativo`; **não** persiste
+`failed_attempts`/`locked_until`. Logo, com backend SQLite o lockout server-side
+da Fase 5 viraria no-op silencioso (fail-open). O backend ativo
+(`config.json: storage_backend="csv"`) suporta os campos corretamente, então o
+lockout funciona em produção atual.
+**Recomendação:** antes de migrar usuários para SQLite, estender o schema/adapter
+SQLite com `tentativas_falhas`/`bloqueado_ate` + mapeamento no `update`.
+Coordenar com CONC-005 (validar SQLite em compartilhamento) e Fase 9.
+
 ### Refinamento do manifest HIG-008 — atividades executadas (2026-05-15)
 
 Rodada de release engineering executada em modo READ-ONLY + documental (anterior ao rescoping de REL-001/002/003):

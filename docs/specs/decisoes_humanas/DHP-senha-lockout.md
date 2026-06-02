@@ -48,20 +48,34 @@ Implementar lockout server-side conforme parâmetros abaixo.
 
 ### Atomicidade
 
-Toda escrita do estado de tentativas/bloqueio é roteada por
-`AuthService.save_users_df(df, system_operation=True)` → contrato de
-persistência (`_save_users_df_via_contract`), que persiste via
-`CsvUserRepositoryAdapter`/`_CsvStore.write_rows` sob `CSVFileLock`
-(ou via backend SQLite quando configurado). O fallback CSV direto
-(`_save_users_df_via_csv`) usa `write_csv_atomic` + `CSVFileLock`.
-Padrões canônicos já presentes em `services/persistence/`.
+A escrita do estado de tentativas/bloqueio atualiza **apenas a linha do
+usuário** via `UserRepository.update(user_id, UserUpdateDTO(...))`. No backend
+ativo (CSV — `storage_backend="csv"`), o `CsvUserRepositoryAdapter` grava sob
+`CSVFileLock` (`_CsvStore.write_rows`). Padrões canônicos já presentes em
+`services/persistence/`.
 
-> **Nota de design:** a recomendação inicial citava `write_csv_atomic(path, df)`
-> direto no helper. A assinatura real de `write_csv_atomic` é
-> `(path, *, rows, fieldnames, contract_name, policy)` e bypassaria o backend
-> de persistência (quebraria SQLite). Por isso a persistência é roteada pelo
-> contrato canônico `save_users_df`, que preserva lock + atomicidade e o
-> backend configurado.
+> **Notas de design (refinadas durante T-052):**
+> 1. A recomendação inicial citava `write_csv_atomic(path, df)` direto. A
+>    assinatura real é `(path, *, rows, fieldnames, contract_name, policy)` —
+>    não aceita DataFrame.
+> 2. Rotear por `save_users_df` (snapshot completo via contrato) tinha dois
+>    problemas: (a) semântica **delete-missing** (apaga usuários ausentes do
+>    snapshot — risco sob concorrência) e (b) `_save_users_df_via_contract`
+>    coage `bloqueado_ate=""` para `None`, e `None` significa "sem alteração"
+>    no `UserUpdateDTO` — logo **não conseguia LIMPAR** o bloqueio no reset.
+> 3. Solução adotada: `repo.update` por linha, passando `locked_until=""`
+>    explícito para limpar o bloqueio. Sem delete-missing; clearing correto.
+
+> **Limitação conhecida (LOCKOUT-SQLITE):** o `SQLiteUserRepositoryAdapter.update`
+> **não persiste** `failed_attempts`/`locked_until` (mapeia apenas
+> nivel/senha/ultimo_login/ativo). Se `storage_backend` for trocado para
+> `sqlite`, o lockout vira no-op (fail-open). O backend ativo é `csv`, onde o
+> lockout funciona. Endereçar antes de habilitar SQLite para usuários — ver
+> tasks.md (achado registrado na Fase 5).
+
+> **Concorrência (CONC / Fase 9):** o incremento é read-modify-write não
+> totalmente atômico entre processos (possível undercount sob corrida). Aceito
+> para piloto 3-5 usuários; reavaliação em CONC-002..006 / Fase 9.
 
 ### Mensagem UI
 
