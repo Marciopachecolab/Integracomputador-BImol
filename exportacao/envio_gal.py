@@ -78,7 +78,7 @@ from exportacao.gal_exceptions import (
 )
 from exportacao.gal_payload_contract import (
     GAL_PAYLOAD_SCHEMA_VERSION,
-    validate_gal_payload,
+    assert_valid_gal_payload,
 )
 from exportacao.gal_payload_dto import GalPayloadDTO
 from ui.gal_ui_dialog_adapter import GalUIDialogAdapter
@@ -960,15 +960,18 @@ class GalService:
         }
 
         try:
-            payload_errors = validate_gal_payload(payload_validacao)
-            if payload_errors:
-                erro_payload = "; ".join(payload_errors)
+            # T-061: fail-closed canonico antes do POST. assert_valid_gal_payload
+            # levanta GalPayloadValidationError se o payload for invalido,
+            # impedindo que siga para _enviar_payload_completo (o POST ao GAL).
+            try:
+                assert_valid_gal_payload(payload_validacao)
+            except GalPayloadValidationError as exc:
                 self.log(
                     "Payload GAL invalido "
-                    f"(schema_version={GAL_PAYLOAD_SCHEMA_VERSION}, amostra={ca}): {erro_payload}",
+                    f"(schema_version={GAL_PAYLOAD_SCHEMA_VERSION}, amostra={ca}): {exc}",
                     "error",
                 )
-                raise GalPayloadValidationError(erro_payload)
+                raise
 
             self.log(
                 f"A enviar payload para {ca} (Paciente: {paciente_masked or '[oculto]'})",
