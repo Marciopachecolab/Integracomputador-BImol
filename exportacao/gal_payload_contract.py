@@ -90,3 +90,22 @@ def validate_gal_payload(payload: Dict[str, Any]) -> List[str]:
         )
 
     return errors
+
+
+def assert_valid_gal_payload(payload: Dict[str, Any]) -> None:
+    """Variante fail-closed de validate_gal_payload.
+
+    Levanta GalPayloadValidationError se houver erros; retorno silencioso
+    em sucesso. Use em pontos de envio (envio_gal.enviar_amostra) onde
+    payload invalido NAO deve seguir para o GAL.
+
+    A funcao validate_gal_payload original permanece para diagnostico/UI
+    (modo fail-open com lista de erros).
+    """
+    from exportacao.gal_exceptions import GalPayloadValidationError
+
+    errors = validate_gal_payload(payload)
+    if errors:
+        raise GalPayloadValidationError(
+            f"Payload GAL invalido ({len(errors)} erro(s)): {'; '.join(errors)}"
+        )
