@@ -291,6 +291,25 @@ sem distinguir motivo. A divergência é apenas na apresentação.
 de bloqueio) e avaliar aposentar o throttle client-side em favor do lockout
 server-side. Endereçar em rodada UI/Fase 9 (hardening), com teste-guardião.
 
+### T-AUD-024 (DT/L-T13) — SQLiteUserRepositoryAdapter.update não persiste lockout
+
+**Descoberta:** Fase 5 Audit Refactoring (T-051, review inline)
+**Severidade:** Médio (latente; CSV é backend ativo)
+**Status:** [ ] Pendente — implementar quando houver decisão de
+trocar backend para SQLite.
+**Origem:** Helper `_persistir_estado_tentativas` em
+autenticacao/auth_service.py usa `repo.update` cirúrgico. Backend CSV
+(ativo) tem implementação correta. Backend SQLite
+(SQLiteUserRepositoryAdapter.update) ainda não persiste campos
+tentativas_falhas/bloqueado_ate — fail-open silencioso se backend
+for trocado.
+**Recomendação:** Estender SQLiteUserRepositoryAdapter.update para
+incluir os 2 campos com transação atômica. Adicionar teste de
+paridade tests/test_lockout_persistence_sqlite_parity.py.
+**Endereçar em:** dia em que houver DEC de migração de backend para
+SQLite. Não-bloqueante hoje (0 callers SQLite).
+**Nota:** formaliza/supersede o achado preliminar `T-051-FIND-SQLITE` acima.
+
 ### Refinamento do manifest HIG-008 — atividades executadas (2026-05-15)
 
 Rodada de release engineering executada em modo READ-ONLY + documental (anterior ao rescoping de REL-001/002/003):
