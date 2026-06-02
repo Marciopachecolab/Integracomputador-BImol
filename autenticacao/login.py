@@ -16,6 +16,10 @@ from .auth_service import AuthService
 
 MAX_TENTATIVAS = 3
 
+# T-AUD-023 / DHP politica-senha-lockout (OWASP A07): mensagem UI unica para
+# qualquer falha de credencial, sem revelar contador nem estado de bloqueio.
+MSG_GENERICA = "Credenciais inválidas. Verifique usuário e senha."
+
 
 def _is_benign_tk_destroy_error(exc: BaseException) -> bool:
     """Identifica erros benignos de ciclo de vida do Tk ao destruir dialogs."""
@@ -190,17 +194,11 @@ class LoginDialog(AfterManagerMixin, ctk.CTkToplevel):
             "WARNING",
         )
         if self.tentativas_restantes > 0:
-            messagebox.showerror(
-                "Erro",
-                f"Credenciais invalidas. {self.tentativas_restantes} tentativa(s) restante(s).",
-                parent=self,
-            )
+            messagebox.showerror("Erro", MSG_GENERICA, parent=self)
         else:
-            messagebox.showerror(
-                "Acesso Bloqueado",
-                "Numero maximo de tentativas excedido!",
-                parent=self,
-            )
+            # Esgotado o contador local de UX: fecha o dialog sem revelar o
+            # motivo (OWASP A07). O lockout real e server-side (auth_service).
+            messagebox.showerror("Erro", MSG_GENERICA, parent=self)
             self.usuario_autenticado = None
             self._on_close(force_exit=True)
 
@@ -383,17 +381,11 @@ class LoginPageEmbedded(ctk.CTkFrame):
             "WARNING",
         )
         if self.tentativas_restantes > 0:
-            messagebox.showerror(
-                "Erro",
-                f"Credenciais inválidas. {self.tentativas_restantes} tentativa(s) restante(s).",
-                parent=self.main_window,
-            )
+            messagebox.showerror("Erro", MSG_GENERICA, parent=self.main_window)
         else:
-            messagebox.showerror(
-                "Acesso Bloqueado",
-                "Número máximo de tentativas excedido!",
-                parent=self.main_window,
-            )
+            # Esgotado o contador local de UX: encerra sem revelar o motivo
+            # (OWASP A07). O lockout real e server-side (auth_service).
+            messagebox.showerror("Erro", MSG_GENERICA, parent=self.main_window)
             import sys
             sys.exit(1)
 
