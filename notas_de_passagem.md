@@ -1466,3 +1466,62 @@ Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
 ### Proxima rodada
 - Fase 3 (Housekeeping root + requirements.txt sem psycopg2 + 2 guardioes) — T-030..T-038.
   Aguardando autorizacao do usuario.
+
+## 2026-06-02 — Fase 3 (Audit Refactoring) concluida
+- T-030, T-031, T-032, T-033, T-035, T-036, T-037, T-038 (+T-038b) executadas.
+- **Root limpo: de 21 para 17 arquivos** (todos canonicos conforme CLAUDE.md §4).
+- DHPs aprovadas em lote (A-E) pelo usuario antes de iniciar:
+  - (A) `battery-report.html` DELETADO (lixo Windows powercfg; gitignored).
+  - (B) `.env.txt` -> `pythonpath.env` (naming enganoso; conteudo real `PYTHONPATH=.`;
+    zero callers `.py`; gitignored).
+  - (C) `config.json.bak` -> `config/backups/config_root_pre_merge.json` (gitignored).
+  - (D) 2x `relatorio_final_corrida_*.json` (vr1, last) -> `snapshots/runtime_artifacts/`
+    (DEC-005; mantidos gitignored, sem excecao no `.gitignore`).
+  - (E) `.bak` de zonas reguladas -> `docs/obsoletos/refactor_attempts/` + README.
+- **T-038b (extensao do lote E, aprovada explicitamente pelo usuario em runtime):**
+  a pre-verificacao do T-037 detectou **6 .bak adicionais** alem dos 2 do lote E:
+  `services/core/config_service.py.bak.moderniza`,
+  `ui/components/plate_viewer.py.bak.moderniza`,
+  `ui/components/plate_viewer.py.bak.popup_fix` (versionado),
+  `ui/modules/cadastros_ui.py.bak.moderniza`,
+  `ui/modules/exam_creator/wizard.py.bak.moderniza`,
+  `ui/modules/extraction_plate_mapping.py.bak`. Todos os 8 arquivados; runtime
+  areas com **0 .bak**. Dois versionados movidos via `git mv`
+  (`domain_ct_rules_runtime...target_recalc_fix`, `ui_components_plate_viewer...popup_fix`);
+  6 gitignored via `Move-Item` (preservados fisicamente).
+- T-030: `psycopg2-binary>=2.9.0` removido de `requirements.txt` (CLAUDE.md §7). Grep
+  global confirma **zero `import psycopg2` em .py** (inclusive `db/db_utils.py` — a
+  inferencia da AUDITORIA.md nao se confirma). Guardiao
+  `tests/test_no_psycopg2_imports.py` (AST) com allowlist temporaria `db/`, `sql/`,
+  `docs/obsoletos/` (Fase 7).
+- T-036: `pytest.ini` `testpaths = tests` (removido `test_feature_flag_toggle.py`
+  inexistente); collect-only sem warning.
+- T-034 **DEFERIDO**: `testedb.csv` (810 KB) NAO tocado — aguarda rodada PRIV-001 LGPD
+  separada (nao-bloqueante para Fase 3). Permanece no root.
+- **8 guardioes verdes (pytest real): `8 passed in 2.90s`** — csv_safety x2, no_hardcoded,
+  dominio_puros, auth_legacy, agents_claude_hash, no_psycopg2, no_bak_files_in_runtime.
+- Verificacao adversaria inline (git + filesystem + grep): root <=18, removidos/movidos
+  confirmados, requirements/pytest.ini limpos, testedb.csv preservado, **zero `.py` de
+  producao modificado** (Fase 3 tocou so requirements.txt, pytest.ini, 2 testes novos,
+  README e 2 renames de .bak sem alterar conteudo).
+- Commits Fase 0/1/2 (>=15) preservados; 5 novos commits Fase 3 no topo:
+  e92aa20 (T-038), 1297978 (T-038b), e27579a (T-036), caaed7c (T-037), 1004590 (T-030).
+
+### [INCIDENTE_AMBIENTE] pytest concorrente -> deadlock em conftest tk.Tk()
+- `conftest.py:107-117` chama `tk.Tk()` real na coleta + importa `ui/services/...`.
+  Rodar 2+ `pytest` concorrentes neste ambiente headless deadlockou 2 processos python
+  em estado ININTERRUPTIVEL (~0% CPU, >20 min); `taskkill /F` e `Stop-Process` falharam
+  (timeout/sem efeito). Causa = contencao de recurso GUI do Windows, NAO regressao de
+  codigo (run unico do Passo 0 = 3.46s; run final = 2.90s).
+- Mitigacao aplicada: rodar pytest em invocacao UNICA (sem concorrencia). Recomendacao
+  futura (nao-bloqueante): tornar `_tk_available()` resiliente a concorrencia / pular Tk
+  em ambiente headless.
+
+### Nao executado (preservado para fases futuras)
+- NAO tocado `testedb.csv` (T-034, PRIV-001), `config.json`, `config_old.json`.
+- NAO movido `analise/`, `extracao/`, `scratch/`, `sql/`, `db/` (Fase 7).
+- NAO alterado `CLAUDE.md`/`AGENTS.md` (preserva hash do guardiao T-012).
+
+### Proxima rodada
+- Fase 4 (Import-ban de pastas orfas + refactor de paths hardcoded em scripts) —
+  T-040..T-045. Aguardando autorizacao do usuario.
