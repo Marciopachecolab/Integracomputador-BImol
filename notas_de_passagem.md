@@ -1576,3 +1576,32 @@ Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
 ### Proxima rodada
 - Fase 4 (Import-ban de pastas orfas + refactor de paths hardcoded em scripts) —
   T-040..T-045. Aguardando autorizacao do usuario.
+
+## 2026-06-02 — Fase 6 (Audit Refactoring) — parcial (6.A + 6.B verdes; 6.C BLOQUEADA)
+
+### Concluido
+- Baseline commit (1b0d3ef): 30 arquivos rastreados modificados (trabalho concluido
+  2026-05-30 nunca commitado) registrado antes da Fase 6, por decisao do usuario
+  ("baseline commit primeiro"), para manter commits de tarefa limpos.
+- 6.A T-060 (19456cf): assert_valid_gal_payload (wrapper fail-closed) em gal_payload_contract.
+- 6.A T-061 (11c8a1f): enviar_amostra usa assert_valid_gal_payload antes do POST.
+- 6.B T-062 (0712823): safe_operation ganha propagate_critical (keyword-only, default False).
+- 6.B T-063 (b28ef22): teste 3 cenarios safe_operation propagate_critical.
+- 6.B T-064 (e89460a): config.settings salvar/_criar_backup propagam falha critica
+  (antes retornavam True falso via fallback_value=True) + guard test.
+
+### [CRITICAL_FINDING] services/reports/ inteiro fora do controle de versao
+- `.gitignore:1020` tem regra over-broad `reports/` (destinada a diretorios de SAIDA),
+  que captura tambem o PACOTE DE CODIGO `services/reports/`.
+- Pacote afetado (8 modulos, TODOS untracked/ignored, sem historico git):
+  __init__.py, dashboard_analytics.py, history_report.py, plate_report.py,
+  relatorio_csv.py, relatorio_estatistico.py, reports_exporter.py, reports_repository.py.
+- Importado por >=12 modulos (application/, services/core, ui/*, exportacao/envio_gal,
+  utils/gui_utils). E codigo de producao vivo, nao artefato.
+- IMPACTO: risco de perda de codigo (nao versionado); o alvo de migracao do 6.C
+  (history_report.py) vive neste pacote ignorado — colocar a fonte canonica ali
+  significa que ela nunca seria versionada.
+- 6.C SUSPENSA aguardando decisao humana sobre: (a) corrigir .gitignore (ancorar
+  `reports/` -> `/reports/`) e versionar o pacote; (b) escolher outro modulo (rastreado)
+  como destino canonico; (c) force-add pontual. NENHUMA acao tomada sem autorizacao.
+- Nada foi forcado para dentro do git; .gitignore NAO alterado.
