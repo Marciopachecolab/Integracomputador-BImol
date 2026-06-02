@@ -225,7 +225,26 @@ Status permitido: `[Pendente]`, `[Em Andamento]`, `[Concluido]`, `[Bloqueado por
 | AUD-REF-F0 (T-002) | T-AUD-016 — forensics import circular envio_gal <-> ui | Investigado (Fase 2; fix em Fase 6/T-061) |
 | AUD-REF-F0 (T-006) | T-AUD-017 — credencial hardcoded em legado user_manager | Pendente (rodada futura, DEC nova) |
 | AUD-REF-F1 (T-010) | T-AUD-018 — BOM UTF-8 em 3 modulos de domain/ | Pendente (housekeeping futuro) |
+| AUD-REF-F4 (T-045) | T-AUD-022 — fixtures externas em generate_phase0_baseline.py | Pendente (housekeeping futuro) |
 | Ativ. HIG-008/2026-05-15 | Dry-run, mapeamento de imports e refinamento documental | Concluido (ver notas) |
+
+### T-AUD-022 (DT/L-T11) — generate_phase0_baseline.py referencia fixtures externas
+
+**Descoberta:** Fase 4 Audit Refactoring (T-045 etapa 1, achado extra)
+**Severidade:** Baixo
+**Status:** [ ] Pendente
+**Origem:** Subagente do T-045 detectou que scripts/generate_phase0_baseline.py
+referencia fixtures .xlsx externas em `Downloads\18 JULHO 2025\`. NAO
+refatorado em T-045 porque o guardião T-044 ficou restrito a literal
+`Downloads/Integragal` (escopo Fase 4).
+**Recomendação:**
+(a) Mover fixtures para `tests/fixtures/phase0_baseline/` (caminho versionado),
+    OU
+(b) Parametrizar via env var `PHASE0_FIXTURES_DIR` com fallback claro,
+    OU
+(c) Marcar script como `manual-only` em README + adicionar guard explícito.
+**Endereçar em:** rodada housekeeping futura ou junto à formalização de
+`tests/fixtures/`. Não-bloqueante para Fases 5+.
 
 ### Refinamento do manifest HIG-008 — atividades executadas (2026-05-15)
 
