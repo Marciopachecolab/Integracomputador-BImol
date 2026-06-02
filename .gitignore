@@ -402,6 +402,8 @@
 # Kernel Module Compile Results
 **/*.mod*
 **/*.cmd
+# Excecao: arquivos .cmd em scripts/ sao legitimos (CI wrappers)
+!scripts/*.cmd
 **/.tmp_versions/
 **/modules.order
 **/Module.symvers
