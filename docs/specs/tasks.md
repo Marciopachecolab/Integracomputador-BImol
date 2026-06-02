@@ -274,6 +274,23 @@ lockout funciona em produção atual.
 SQLite com `tentativas_falhas`/`bloqueado_ate` + mapeamento no `update`.
 Coordenar com CONC-005 (validar SQLite em compartilhamento) e Fase 9.
 
+### T-051-FIND-UIMSG — login.py revela "tentativas restantes" (OWASP A07)
+
+**Data:** 2026-06-02
+**Descoberta:** Fase 5 (verificação adversária pós-T-052)
+**Severidade:** Média (enumeração/leak na camada UI)
+**Status:** [ ] Pendente (fora do escopo da Fase 5 por §9 — não tocar login.py)
+**Detalhe:** `autenticacao/login.py` ainda exibe `"Credenciais invalidas.
+N tentativa(s) restante(s)."` e `"Acesso Bloqueado / Numero maximo de
+tentativas excedido!"` (throttle client-side legado em memória, MAX=3). Isso
+contradiz o objetivo OWASP A07 da DHP (mensagem **genérica** na UI). A camada
+de serviço (`autenticar_credenciais`) já está conforme: retorna `None` uniforme
+sem distinguir motivo. A divergência é apenas na apresentação.
+**Recomendação:** trocar as mensagens de `login.py` por
+`"Credenciais inválidas. Verifique usuário e senha."` (sem contagem nem estado
+de bloqueio) e avaliar aposentar o throttle client-side em favor do lockout
+server-side. Endereçar em rodada UI/Fase 9 (hardening), com teste-guardião.
+
 ### Refinamento do manifest HIG-008 — atividades executadas (2026-05-15)
 
 Rodada de release engineering executada em modo READ-ONLY + documental (anterior ao rescoping de REL-001/002/003):

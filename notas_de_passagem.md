@@ -2,6 +2,40 @@
 
 ---
 
+## 2026-06-02 — Fase 5 (Audit Refactoring) — implementação concluída
+Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
+
+- **T-050, T-051a, T-051, T-052, T-053** executadas (5 commits: `e59f27f`, `d56e719`,
+  `b0a38a3`, `ad17ac0`, `4eb4c3d`).
+- **Lockout server-side ATIVO** em `autenticacao/auth_service.py` (ÚNICO `.py` de produção tocado).
+- Política: 5 tentativas → 15 min bloqueio + auto-desbloqueio na expiração.
+- Lockout check ANTES de bcrypt (evita timing leak/enumeração); mensagem genérica
+  no serviço (sempre `None` em falha — OWASP A07). Hash bcrypt mantido.
+- Persistência: helper `_persistir_estado_tentativas` → `UserRepository.update` por
+  linha (CSVFileLock no adapter CSV; backend ativo = `csv`). Passa `locked_until=""`
+  explícito para LIMPAR bloqueio (None = "sem alteração" no contrato).
+- **Bug capturado na validação adversária (T-052) e corrigido em T-051:** rota inicial
+  `save_users_df` coagia `bloqueado_ate=""`→`None` e nunca limpava o bloqueio + tinha
+  semântica delete-missing. Trocado por `repo.update` cirúrgico.
+- **Achados registrados** (`docs/specs/tasks.md`, não-bloqueantes):
+  - `T-051-FIND-SQLITE`: `SQLiteUserRepositoryAdapter.update` não persiste
+    `failed_attempts`/`locked_until` (fail-open SE backend trocado p/ sqlite; csv ativo OK).
+  - `T-051-FIND-UIMSG`: `login.py` ainda revela "N tentativas restantes" (OWASP A07 na UI);
+    fora do escopo Fase 5 (§9 — não tocar login.py); endereçar em rodada UI/Fase 9.
+- Evidência de testes: **21 passed** (13 guardiões + 4 smoke + 4 lockout), execução
+  sequencial (sem `-n auto`, T-AUD-021). Caracterização (T-051a) verde antes e depois da impl.
+- **Suíte completa `pytest tests/` NÃO concluída:** hang conhecido de GUI/Tk no Windows
+  (process ininterruptível, documentado na nota da Fase 4 + T-AUD-021); não é regressão.
+  Evidência via subconjunto de 21 testes relevantes.
+- **PENDENTE PILOTO 7 dias** (sub-fase 5.4 — handoff em `docs/specs/decisoes_humanas/phase5_piloto_handoff.md`
+  e espelho `snapshots/phase5_piloto_handoff.md`).
+- Não tocados: `core/authentication/user_manager.py` (DEC-003), `autenticacao/login.py` (§9),
+  `CLAUDE.md`/`AGENTS.md` (guardião T-012), 13 guardiões existentes.
+- Próxima rodada técnica: Fase 6 (Fail-closed + cadastros_ui split) — pode iniciar em
+  paralelo ao piloto, mediante autorização.
+
+---
+
 ## 2026-06-02 — Fase 4 (Audit Refactoring) concluída
 Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
 
