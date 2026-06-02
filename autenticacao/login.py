@@ -14,8 +14,6 @@ from utils.logger import registrar_log
 from ui.components.base_components import IGTextField
 from .auth_service import AuthService
 
-MAX_TENTATIVAS = 3
-
 # T-AUD-023 / DHP politica-senha-lockout (OWASP A07): mensagem UI unica para
 # qualquer falha de credencial, sem revelar contador nem estado de bloqueio.
 MSG_GENERICA = "Credenciais inválidas. Verifique usuário e senha."
@@ -138,7 +136,6 @@ class LoginDialog(AfterManagerMixin, ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
         self.auth_service = AuthService()
-        self.tentativas_restantes = MAX_TENTATIVAS
         self.usuario_autenticado: Optional[dict] = None
         self.closed_var = BooleanVar(master=self, value=False)
 
@@ -187,20 +184,12 @@ class LoginDialog(AfterManagerMixin, ctk.CTkToplevel):
             self._on_close()
             return
 
-        self.tentativas_restantes -= 1
         registrar_log(
             "Login",
-            f"Tentativa de login falhada. Restam {self.tentativas_restantes} tentativas.",
+            f"Tentativa de login falhada para o utilizador '{username}'.",
             "WARNING",
         )
-        if self.tentativas_restantes > 0:
-            messagebox.showerror("Erro", MSG_GENERICA, parent=self)
-        else:
-            # Esgotado o contador local de UX: fecha o dialog sem revelar o
-            # motivo (OWASP A07). O lockout real e server-side (auth_service).
-            messagebox.showerror("Erro", MSG_GENERICA, parent=self)
-            self.usuario_autenticado = None
-            self._on_close(force_exit=True)
+        messagebox.showerror("Erro", MSG_GENERICA, parent=self)
 
     def _on_close(self, force_exit: bool = False):
         try:
@@ -269,8 +258,7 @@ class LoginPageEmbedded(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self.main_window = main_window
         self.auth_service = AuthService()
-        self.tentativas_restantes = MAX_TENTATIVAS
-        
+
         self._build_ui()
 
     def _build_ui(self):
@@ -374,20 +362,12 @@ class LoginPageEmbedded(ctk.CTkFrame):
                 self.main_window.on_login_success(dados_usuario)
             return
 
-        self.tentativas_restantes -= 1
         registrar_log(
             "Login",
-            f"Tentativa de login falhada. Restam {self.tentativas_restantes} tentativas.",
+            f"Tentativa de login falhada para o utilizador '{username}'.",
             "WARNING",
         )
-        if self.tentativas_restantes > 0:
-            messagebox.showerror("Erro", MSG_GENERICA, parent=self.main_window)
-        else:
-            # Esgotado o contador local de UX: encerra sem revelar o motivo
-            # (OWASP A07). O lockout real e server-side (auth_service).
-            messagebox.showerror("Erro", MSG_GENERICA, parent=self.main_window)
-            import sys
-            sys.exit(1)
+        messagebox.showerror("Erro", MSG_GENERICA, parent=self.main_window)
 
 def create_login_page(parent, main_window):
     """Factory para o NavigationManager."""

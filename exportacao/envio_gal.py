@@ -81,7 +81,7 @@ from exportacao.gal_payload_contract import (
     assert_valid_gal_payload,
 )
 from exportacao.gal_payload_dto import GalPayloadDTO
-from ui.gal_ui_dialog_adapter import GalUIDialogAdapter
+
 from services.gal.gal_transactions import (
     append_transaction_journal_unique,
     append_success_transactions,
@@ -1468,6 +1468,7 @@ class IntegrationApp(ctk.CTkFrame):
         )
         self.gal_send_use_case = GalSendUseCase(self.gal_service)
         self.gal_ui_input_adapter = GalUIInputAdapter(self.log_to_textbox)
+        from ui.gal_ui_dialog_adapter import GalUIDialogAdapter
         self.gal_ui_dialog_adapter = GalUIDialogAdapter()
 
         self.current_csv_path: Optional[str] = None
