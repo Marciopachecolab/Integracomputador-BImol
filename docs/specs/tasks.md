@@ -246,6 +246,18 @@ refatorado em T-045 porque o guardião T-044 ficou restrito a literal
 **Endereçar em:** rodada housekeeping futura ou junto à formalização de
 `tests/fixtures/`. Não-bloqueante para Fases 5+.
 
+### T-050 — DHP "política de senha/lockout" formalizada
+
+**Data:** 2026-06-02
+**Severidade:** N/A (decisão humana)
+**Status:** [x] Aprovada
+**Referência:** docs/specs/decisoes_humanas/DHP-senha-lockout.md
+**AC vinculada:** AC-7.1
+**Parâmetros:** MAX_TENTATIVAS_FALHAS=5; BLOQUEIO_DURACAO_MINUTOS=15 (auto-desbloqueio);
+admin reset via UI (matriz `users.mutate`); senha min 8 chars (mantido do legado);
+hash bcrypt mantido; feedback UI genérico (OWASP A07); complexidade extra deferida p/ Fase 9.
+Pré-requisito de T-051..T-053 (Fase 5 Audit Refactoring).
+
 ### Refinamento do manifest HIG-008 — atividades executadas (2026-05-15)
 
 Rodada de release engineering executada em modo READ-ONLY + documental (anterior ao rescoping de REL-001/002/003):
