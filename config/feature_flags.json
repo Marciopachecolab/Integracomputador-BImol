@@ -151,5 +151,32 @@
     "description": "Ativa rollout canario por estagios (10/25/50/100) para reduzir fallback legado de forma progressiva",
     "created_at": "2026-03-26",
     "owner": "team-dev"
+  },
+  "USE_GAL_FIREFOX_HEADLESS": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Abre o Firefox em modo headless (invisivel) durante o envio ao GAL. Equivalente ao toggle 'Ocultar navegador' nas configuracoes GAL. ROLLBACK: setar enabled=false.",
+    "created_at": "2026-05-30",
+    "owner": "team-dev"
+  },
+  "USE_GAL_TERMINAL_LOG_POR_AMOSTRA": {
+    "enabled": true,
+    "rollout_percentage": 100,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Exibe no terminal de envio uma linha por amostra com codigoAmostra e resultado (SUCESSO/ERRO/DUPLICADO). ROLLBACK: setar enabled=false para voltar ao resumo final apenas.",
+    "created_at": "2026-05-30",
+    "owner": "team-dev"
+  },
+  "USE_GAL_ENVIO_SEM_METADADOS": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "Pula consulta a /bmh/entrada-resultados/lista/ e envia usando codigoAmostra direto como codigo/registroInterno. requisicao e paciente ficam vazios — GAL localiza o registro pelo par codigoAmostra+gal_exame_codigo. ROLLBACK: setar enabled=false para restaurar comportamento com metadados.",
+    "created_at": "2026-05-30",
+    "owner": "team-dev"
   }
 }

@@ -3,9 +3,9 @@
         "ui_single_window": true
     },
     "ui_single_window": true,
-    "data_root": "C:\\Integragal\\Integragal - Backup - 20260128_151811\\dados",
+    "data_root": "C:\\Integragal - Backup - 20260128_151811\\dados",
     "allowed_roots": [
-        "C:\\Integragal\\Integragal - Backup - 20260128_151811\\dados"
+        "C:\\Integragal - Backup - 20260128_151811\\dados"
     ],
     "storage_backend": "csv",
     "shared_storage": {
@@ -48,11 +48,11 @@
         "credentials_csv": "banco_runtime/usuarios.csv",
         "users_csv": "banco_runtime/usuarios.csv",
         "processing_history_csv": "logs/historico_processos.csv",
-        "gal_history_csv": "logs/total_importados_gal.csv",
-        "gal_upload_history_csv": "logs/total_importados_gal.csv",
+        "gal_history_csv": "logs/historico_analises.csv",
+        "gal_upload_history_csv": "logs/historico_analises.csv",
         "default_csv_folder": "data/inputs",
         "default_results_folder": "reports",
-        "logs_dir": "dados/banco"
+        "logs_dir": "logs"
     },
     "postgres": {
         "enabled": false,
@@ -63,7 +63,7 @@
         "port": 5432
     },
     "gal_integration": {
-        "base_url": "https://gal.saude.sc.gov.br",
+        "base_url": "https://galteste.saude.sc.gov.br",
         "login_ids": {
             "username": "usuario",
             "password": "senha",
@@ -80,7 +80,7 @@
             "backoff_factor": 0.5
         },
         "panel_tests": {
-            "1": [
+            "12": [
                 "influenzaa",
                 "influenzab",
                 "coronavirusncov",
@@ -99,7 +99,9 @@
                 "parainflu_3",
                 "parainflu_4"
             ]
-        }
+        },
+        "headless": true,
+        "envio_sem_metadados": false
     },
     "_comentario": "Configurações padrão do sistema IntegRAGal",
     "_versao": "1.0.0",
@@ -199,7 +201,7 @@
     },
     "avancado": {
         "modo_debug": false,
-        "nivel_log": "WARNING",
+        "nivel_log": "DEBUG",
         "mostrar_informacoes_tecnicas": false,
         "habilitar_cache": false,
         "tamanho_cache_mb": 275.0,
@@ -231,7 +233,8 @@
     "exams": {
         "active_exams": [
             "VR1e2 Biomanguinhos 7500",
-            "ZDC BioManguinhos"
+            "ZDC BioManguinhos",
+            "aegawg"
         ]
     }
 }

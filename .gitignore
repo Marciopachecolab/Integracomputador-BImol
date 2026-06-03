@@ -402,6 +402,8 @@
 # Kernel Module Compile Results
 **/*.mod*
 **/*.cmd
+# Excecao: arquivos .cmd em scripts/ sao legitimos (CI wrappers)
+!scripts/*.cmd
 **/.tmp_versions/
 **/modules.order
 **/Module.symvers
@@ -929,7 +931,8 @@ pytest_tmp/
 # Logs e relatorios gerados
 *.log
 logs/
-reports/
+# T-065 (Fase 6): ancorado a raiz; nao captura o pacote services/reports/.
+/reports/
 relatorios/
 
 # Snapshots/artefatos historicos de encoding (DEC-004)
@@ -1015,7 +1018,10 @@ dados/banco_runtime/
 # Dados operacionais, logs, relatorios e arquivos gerados
 dados/
 logs/
-reports/
+# T-065 (Fase 6): ancorado a raiz para nao capturar o pacote de codigo
+# services/reports/ (modulos de producao versionaveis). A pasta de saida
+# /reports/ na raiz segue ignorada; dados/reports segue coberto por dados/.
+/reports/
 relatorios/
 entrada/
 saida/
@@ -1047,3 +1053,4 @@ release/**
 .cursor/
 .vscode/
 .idea/
+_rollback_*/

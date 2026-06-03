@@ -4,6 +4,7 @@ Captura e registra informações de todos os DataFrames principais do sistema.
 """
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -14,19 +15,28 @@ from utils.csv_lock import CSVFileLock
 from utils.network_io import RetryPolicy, open_with_retry
 
 
+def _resolve_dataframe_log_dir() -> str:
+    """Resolve o diretório de relatórios de DataFrame via config service, com fallback seguro."""
+    try:
+        from services.core.config_service import config_service
+        paths = config_service.get_paths()
+        logs_dir = paths.get("logs_dir")
+        if logs_dir:
+            return os.path.join(logs_dir, "dataframe_reports")
+    except Exception:
+        pass
+    return "logs/dataframe_reports"
+
+
 class DataFrameReporter:
     """
     Gerenciador de relatórios de DataFrames.
     Captura informações detalhadas sobre DataFrames em diferentes etapas do processamento.
     """
-    
-    def __init__(self, log_dir: str = "logs/dataframe_reports"):
-        """
-        Inicializa o reporter.
-        
-        Args:
-            log_dir: Diretório onde os relatórios serão salvos
-        """
+
+    def __init__(self, log_dir: str | None = None):
+        if log_dir is None:
+            log_dir = _resolve_dataframe_log_dir()
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.current_session = datetime.now().strftime("%Y%m%d_%H%M%S")

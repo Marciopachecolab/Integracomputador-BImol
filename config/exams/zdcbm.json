@@ -57,7 +57,8 @@
     "Zika",
     "Chikungunya"
   ],
-  "panel_tests_id": "zdcbm",
+  "gal_exame_codigo": "PEQZDC",
+  "panel_tests_id": "",
   "controles": {
     "cn": [],
     "cp": [

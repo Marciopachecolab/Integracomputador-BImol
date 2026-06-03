@@ -18,14 +18,16 @@ IntegRAGal e um sistema desktop (Windows) para operacao RT-PCR com quatro etapas
 ## 3. Fora de escopo (nao faz)
 - Nao e aplicacao web.
 - Nao e LIMS completo.
-- Nao suporta catalogo aberto de exames em producao sem contrato.
+- Nao suporta execucao de exames sem configuracao/contrato valido ou sem habilitacao em `active_exams`.
 - Nao suporta backend Postgres dedicado (nao implementado no provider atual).
 
-## 4. Exames ativos obrigatorios
-- `VR1e2 Biomanguinhos 7500`
-- `ZDC BioManguinhos`
+## 4. Escopo de exames habilitados
+Em runtime real, o escopo operacional e definido por `exams.active_exams`.
 
-Qualquer outro exame deve ser bloqueado no fluxo operacional.
+- Todo exame listado em `active_exams` e considerado habilitado, desde que possua configuracao/contrato valido no registry.
+- Exame ausente de `active_exams` deve ser bloqueado no fluxo operacional antes de qualquer IO de analise.
+- `active_exams` vazio em registry carregado bloqueia todos os exames.
+- `VR1e2 Biomanguinhos 7500` e `ZDC BioManguinhos` permanecem exames canonicos de referencia com regras laboratoriais explicitadas em §5, mas nao limitam o catalogo operacional quando outros exames estiverem habilitados.
 
 ## 5. Regras laboratoriais (resumo)
 ### 5.1 VR1e2 Biomanguinhos 7500
@@ -73,11 +75,11 @@ Prioridade obrigatoria:
   Decisao DEC-001 (2026-05-13): o `config.json` versionado e template/local runtime nao pronto para producao. Ambientes produtivos exigem configuracao local validada, com `shared_storage.root`, `data_root` e `allowed_roots` preenchidos. A aplicacao nao deve operar em producao com `shared_storage.required=true` e caminhos vazios.
   Confirmado pelo codigo: `config.json:11-16` lista campos vazios. Rastreabilidade: D-02 / DEC-001.
 - Auditoria READ-ONLY de 2026-05-15 classificou o modulo de Instalacao Inicial como **FUNCIONAL COM RESTRICOES**. O modulo existe, mas requer backlog INST antes de uso produtivo irrestrito: lock/atomicidade para `config.json` (INST-001), dry-run/resumo (INST-002), backup/rollback (INST-003), ajuste ADMIN+MASTER com confirmacao forte, log/auditoria e backup previo futuro (INST-004) e teste end-to-end do wizard (INST-005).
-- O catalogo de exames ativos (`exams.active_exams`) deve permanecer com exatamente os dois exames canonicos definidos em §4.
+- O catalogo de exames ativos (`exams.active_exams`) e a fonte canonica de habilitacao operacional. Novos exames podem operar quando estiverem nessa lista e tiverem configuracao/contrato valido; exames ausentes continuam fail-closed.
 - Contratos de equipamentos (`config/contracts/equipment/*.json`) sao a fonte canonica operacional. As fontes legadas em `banco/` permanecem disponiveis apenas para rollback controlado, conforme `docs/specs/equipment_legacy_deprecation.md`. Rastreabilidade: D-11 / DEC-002.
 
 ## 8. Criterios de aceite objetivos
-- CA-01: menu operacional lista apenas os dois exames ativos.
+- CA-01: menu operacional lista apenas os exames habilitados em `active_exams`.
 - CA-02: bordas de CT de VR1e2 e ZDC passam nos testes de classificacao.
 - CA-03: linhas inconclusivas/indeterminadas mantem cor/tag correta na tabela.
 - CA-04: salvar edicao no mapa nao pode ser sobrescrito por recalculo de CT.
@@ -85,11 +87,15 @@ Prioridade obrigatoria:
 - CA-06: item 7 abre maximizado e formulario de edicao abre em janela ampliada.
 - CA-07: `shared_storage.required=true` exige `data_root` unico e ACL leitura/escrita.
 - CA-08: envio GAL verifica chave legada (4 campos) e chave com escopo (4+N) antes de cada linha; reenvio de linha com `status=sucesso` e bloqueado; linha com `status=erro` pode ser reenviada.
-- CA-09: exame fora de `active_exams` levanta `ExamForaDoEscopoError` no inicio do pipeline de analise (fail-closed); `active_exams` vazio bloqueia todos os exames quando o registry ja foi carregado.
+- CA-09: exame ausente de `active_exams` levanta `ExamForaDoEscopoError` no inicio do pipeline de analise (fail-closed); `active_exams` vazio bloqueia todos os exames quando o registry ja foi carregado.
 - CA-10: o guard de escopo deve distinguir registry carregado de stub de teste. Em runtime real, `active_exams` vazio bloqueia todos os exames; em stub de teste sem configuracao, `is_active()` pode retornar `True` por contrato canonico, sem afetar o fail-closed do registry real. Rastreabilidade: D-12.
 - CA-11: a verificacao de idempotencia GAL deve detectar tambem o caso em que apenas a chave legada (4 campos) consta no journal e a chave com escopo (4+N) e nova. Esse cenario deve ser bloqueado como `duplicado`. Rastreabilidade: D-07 / L-T01 — exige teste dedicado (ver `tasks.md §10`, T-AUD-007).
 - CA-12: a configuracao de `shared_storage` em template incompleto nao caracteriza ambiente pronto para producao. Validacao de instalacao deve falhar fail-closed quando `shared_storage.required=true` e `data_root` ou `allowed_roots` estiverem vazios. Rastreabilidade: D-02 / DEC-001 — exige teste dedicado (ver `tasks.md §10`, T-AUD-003).
 - CA-13: a implantacao inicial deve operar como piloto controlado com 3 a 5 usuarios. Aptidao plena para 10 usuarios simultaneos nao deve ser declarada ate conclusao dos controles prioritarios CONC-002, CONC-003 e INST-001, alem dos demais testes CONC aplicaveis. Ate la, 10 usuarios e meta condicionada, nao escopo inicial.
+- CA-14: poco vazio (codigo de amostra em branco, apenas "X" ou prefixo "Vazio...") deve sempre resultar em `Resultado_geral = Invalido` e `Selecionado = False`, para todos os exames, impedindo seu envio ao GAL. Rastreabilidade: `domain.resultado_geral.is_amostra_vazia`; guardiao: `tests/test_poco_vazio_invalido.py`.
+- CA-15: exame criado pelo wizard deve ser plenamente funcional para envio GAL sem depender de defaults de outro exame. O wizard deve capturar `gal_exame_codigo`, `kit_codigo`, `panel_tests_id` e `export_fields` no Passo 4. O envio GAL deve usar esses campos, com fallback para `export_fields` quando o painel nao consta na config GAL. Rastreabilidade: `design.md §3.3.1`; guardioes: `tests/test_exam_creator_campos_gal.py`.
+- CA-16: as analiticas do dashboard (Gestao Clinica e Visao Analitica) devem contar resultados por alvo apenas a partir das colunas canonicas `RES_*`, ignorando snapshots `SRC_RES_*` e controles `RP|CN|CP|GERAL`. Nao deve haver alvo duplicado (ex.: "RES X" e "SRC RES X") nem rotulo com prefixo `RES_`/`SRC_`. As abas que leem do SQLite (`banco_runtime/historico.db`) devem exibir dados mesmo quando o historico CSV do Operacional estiver vazio. Rastreabilidade: DASH-003/004/005/DASH-FIX-001; `design.md §3.8` e §14.2.
+- CA-17: o detalhe de uma corrida aberto a partir do dashboard e somente leitura (sem edicao). O "Mapa Definitivo" disponibilizado ao operador deve ser o `.xlsx` `mapa_placa_*` efetivamente gerado pela analise em `<data_root>/mapas`, localizado por correspondencia com o nome da corrida; nunca uma regeneracao divergente. Quando inexistente, informar que deve ser gerado na tela de Analise. Rastreabilidade: DASH-007; `exportacao/mapa_placa_exporter.py`; `design.md §3.8`.
 
 ### 8.1 Contrato Visível de UI — Janela de Análise (Tarefa 9)
 - **Gatilho:** Evento `ON_LOAD_SUCCESS` do módulo de análise.
@@ -105,7 +111,7 @@ O modulo deve apoiar tomada de decisao operacional sem alterar regras clinicas, 
 
 ### 9.2 Personas e User Stories
 - US-R01: Como coordenador do laboratorio, quero visualizar exames realizados e exames a realizar por periodo, para acompanhar demanda e produtividade.
-- US-R02: Como coordenador do laboratorio, quero filtrar relatorios por tipo de exame, para comparar volumes de `VR1e2 Biomanguinhos 7500` e `ZDC BioManguinhos`.
+- US-R02: Como coordenador do laboratorio, quero filtrar relatorios por tipo de exame habilitado, para comparar volumes entre os exames operacionais.
 - US-R03: Como analista, quero consultar resultados por positividade, para identificar rapidamente amostras detectaveis, nao detectaveis, indeterminadas e invalidas.
 - US-R04: Como supervisor, quero filtrar por data inicial/final, para consolidar producao diaria, semanal ou mensal.
 - US-R05: Como supervisor, quero filtrar por analista responsavel, para auditar execucao e distribuicao de trabalho.
@@ -144,7 +150,7 @@ O modulo deve apoiar tomada de decisao operacional sem alterar regras clinicas, 
 
 ### 9.6 Criterios de aceite do modulo
 - CA-R01: relatorio por periodo retorna somente registros dentro do intervalo informado, inclusive limites do dia.
-- CA-R02: filtro por exame respeita somente exames ativos; exame fora de escopo nao deve aparecer como opcao operacional.
+- CA-R02: filtro por exame respeita somente exames habilitados em `active_exams`; exame fora de escopo nao deve aparecer como opcao operacional.
 - CA-R03: agregacao por positividade deve usar `Resultado_geral`/contadores persistidos, sem recalcular regra clinica em tela.
 - CA-R04: filtro por analista deve aceitar `usuario`, `usuario_analise` ou campo equivalente persistido.
 - CA-R05: filtro por kit/lote deve consultar `lote`, `lote_kit` ou `kit_codigo` conforme fonte, documentando campo de origem.

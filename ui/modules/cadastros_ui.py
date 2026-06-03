@@ -3815,6 +3815,19 @@ class RegistryExamEditor:
         if seen_targets and seen_targets != seen_limiares:
             return False, "cada alvo+poco deve possuir limiares CT correspondentes"
 
+        # Avisos nao bloqueantes sobre campos necessarios para envio GAL.
+        # O save prossegue; o operador e alertado em log mas nao bloqueado
+        # (evita quebrar exames legados criados antes do Passo 4 do wizard).
+        _gal_warns = []
+        if not getattr(cfg, "gal_exame_codigo", ""):
+            _gal_warns.append("gal_exame_codigo vazio — busca de metadados usara nome do exame como codExame")
+        if not getattr(cfg, "kit_codigo", ""):
+            _gal_warns.append("kit_codigo vazio — envio usara default '1175'")
+        if not getattr(cfg, "export_fields", []):
+            _gal_warns.append("export_fields vazio — exportacao usara analitos padrao de VR1e2")
+        for _w in _gal_warns:
+            registrar_log("validate_exam", f"[GAL-AVISO] {_w}", "WARNING")
+
         return True, "Validacao OK"
 
 
@@ -4239,6 +4252,8 @@ class RegistryExamEditor:
             "export_fields": cfg.export_fields,
 
             "panel_tests_id": cfg.panel_tests_id,
+
+            "gal_exame_codigo": getattr(cfg, "gal_exame_codigo", ""),
 
             "controles": cfg.controles,
 

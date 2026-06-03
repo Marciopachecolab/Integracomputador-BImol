@@ -72,19 +72,20 @@ def _page_count(total: int, page_size: int) -> int:
 # Componente de Calendário Simples
 # ---------------------------------------------------------------------------
 class SimpleCalendar(ctk.CTkToplevel):
-    def __init__(self, parent, target_entry):
+    def __init__(self, parent, target_entry, date_format: str = "%Y-%m-%d"):
         super().__init__(parent)
         self.title("Selecionar Data")
         self.geometry("280x300")
         self.attributes("-topmost", True)
         self.resizable(False, False)
-        
+
         self.target_entry = target_entry
-        
+        self.date_format = date_format
+
         # Determine initial date
         current_text = target_entry.get().strip()
         try:
-            self.current_date = datetime.strptime(current_text, "%Y-%m-%d").date()
+            self.current_date = datetime.strptime(current_text, self.date_format).date()
         except ValueError:
             self.current_date = date.today()
             
@@ -156,7 +157,7 @@ class SimpleCalendar(ctk.CTkToplevel):
     def _select_date(self, day):
         selected = date(self.year, self.month, day)
         self.target_entry.delete(0, "end")
-        self.target_entry.insert(0, selected.isoformat())
+        self.target_entry.insert(0, selected.strftime(self.date_format))
         self.destroy()
 
 # ---------------------------------------------------------------------------

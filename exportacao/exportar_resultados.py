@@ -157,10 +157,10 @@ def exportar_resultados_core(
 
             for key, value in {
                 "paciente": "",
-                "exame": "VRSRT",
+                "exame": str(getattr(cfg, "gal_exame_codigo", "VRSRT")) if cfg else "VRSRT",
                 "metodo": "RTTR",
-                "kit": "427",
-                "painel": "1",
+                "kit": str(getattr(cfg, "kit_codigo", "1175")) if cfg else "1175",
+                "painel": str(getattr(cfg, "panel_tests_id", "12")) if cfg else "12",
                 "resultado": "",
             }.items():
                 if key in colunas_modelo and not csv_line.get(key):
@@ -883,34 +883,16 @@ def exportar_resultados_gal(
                     # Adicionar valores padrão se as colunas existirem no modelo e não foram preenchidas
 
 
-                    for k, v in {
-
-
+                    for key, value in {
                         "paciente": "",
-
-
-                        "exame": "VRSRT",
-
-
+                        "exame": str(getattr(exam_cfg, "gal_exame_codigo", "VRSRT")) if exam_cfg else "VRSRT",
                         "metodo": "RTTR",
-
-
-                        "kit": "427",
-
-
-                        "painel": "1",
-
-
+                        "kit": str(getattr(exam_cfg, "kit_codigo", "1175")) if exam_cfg else "1175",
+                        "painel": str(getattr(exam_cfg, "panel_tests_id", "12")) if exam_cfg else "12",
                         "resultado": "",
-
-
                     }.items():
-
-
-                        if k in colunas_modelo and not csv_line.get(k):
-
-
-                            csv_line[k] = v
+                        if key in colunas_modelo and not csv_line.get(key):
+                            csv_line[key] = value
 
 
 

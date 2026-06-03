@@ -1,0 +1,95 @@
+{
+  "nome_exame": "aegawg",
+  "slug": "2134",
+  "equipamento": "7500",
+  "tipo_placa_analitica": "96",
+  "esquema_agrupamento": "96->48",
+  "kit_codigo": "",
+  "alvos": [
+    "sdgfsdfsd",
+    "rp",
+    "yjtjtjt"
+  ],
+  "mapa_alvos": {
+    "sdgfsdfsd": "sdgfsdfsd",
+    "rp": "rp",
+    "yjtjtjt": "yjtjtjt"
+  },
+  "faixas_ct": {
+    "detect_max": 35.0,
+    "inconc_min": 35.01,
+    "inconc_max": 40.0,
+    "rp_min": 10.0,
+    "rp_max": 35.0
+  },
+  "rps": [
+    "rp"
+  ],
+  "export_fields": [],
+  "panel_tests_id": "2134",
+  "controles": {
+    "cn": [],
+    "cp": [
+      "rp"
+    ]
+  },
+  "comentarios": "Cadastro via wizard V2 compat mode",
+  "versao_protocolo": "1.0",
+  "pocos_por_amostra": 2,
+  "targets_por_poco": [
+    {
+      "alvo": "sdgfsdfsd",
+      "filtro": "VIC",
+      "poco": 1,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "FAM",
+      "poco": 1,
+      "tipo": "RP"
+    },
+    {
+      "alvo": "yjtjtjt",
+      "filtro": "NED",
+      "poco": 2,
+      "tipo": "VIRAL"
+    },
+    {
+      "alvo": "rp",
+      "filtro": "FAM",
+      "poco": 2,
+      "tipo": "RP"
+    }
+  ],
+  "limiares_ct_por_alvo_poco": [
+    {
+      "alvo": "sdgfsdfsd",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 1,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "yjtjtjt",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    },
+    {
+      "alvo": "rp",
+      "poco": 2,
+      "ct_minimo": 10.0,
+      "ct_detectavel_limite": 35.0,
+      "ct_inconclusivo_limite": 40.0
+    }
+  ]
+}

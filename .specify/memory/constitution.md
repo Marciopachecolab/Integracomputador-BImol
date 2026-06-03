@@ -2,7 +2,7 @@
 
 ## Project Principles
 
-Estes princípios regem a contribuição de agentes autônomos (Claude Code, SpecKit, etc.) e desenvolvimento humano no projeto. Eles foram extraídos do contrato arquitetural canónico (anteriormente definido estritamente em `AGENTS.md` e `CLAUDE.md`).
+Estes princípios regem a contribuição de agentes autônomos (Claude Code, SpecKit, etc.) e desenvolvimento humano no projeto. Eles foram extraídos do contrato arquitetural canônico (anteriormente definido estritamente em `AGENTS.md` e `CLAUDE.md`).
 
 ### 1. Fontes de Verdade (Docs) e Stack (MUST)
 - MUST usar sempre a pasta `docs/specs/` como a Fonte de Verdade da engenharia de requisitos.
@@ -15,16 +15,25 @@ Estes princípios regem a contribuição de agentes autônomos (Claude Code, Spe
 - MUST NOT ler, imprimir no terminal ou expor credenciais dos *seeds* do sistema (`credenciais.csv`, `usuarios.csv`).
 
 ### 3. Falha em Tempo de Execução e Escopo (MUST)
-- MUST operar num esquema `fail-closed` para exames fora do escopo. Os ativos atuais obrigatórios são `VR1e2 Biomanguinhos 7500` e `ZDC BioManguinhos`.
+- MUST operar num esquema `fail-closed` para exames fora do escopo configurado. Em runtime real, o escopo operacional é a lista `active_exams`: todo exame habilitado nessa lista pode operar quando possuir configuração/contrato válido; exame ausente de `active_exams` deve ser bloqueado.
 - MUST verificar e respeitar as condições de `shared_storage` e configurações da *Instalação Inicial* antes de invocar rotinas na base de dados em ambiente produtivo.
 - MUST normalizar chaves de idempotência (ex: *dual-key GAL*) como lowercase/strip, nunca embutindo timestamps nas chaves para fugir à idempotência.
 
 ### 4. Ciclo Operacional SDD (SHOULD)
-- O fluxo de trabalho SHOULD sempre passar por uma fase de ingestão (`speckit-brownfield-scan`), validação de artefactos e especificação antes de mexer em `main.py` ou serviços.
+- O fluxo de trabalho SHOULD sempre passar por uma fase de ingestão (`speckit-brownfield-scan`), validação de artefatos e especificação antes de mexer em `main.py` ou serviços.
 - Modificações na infraestrutura DEV/Runtime (arquivos passados para `docs/obsoletos`, por exemplo) só podem ocorrer via aprovação em Fases formais de Higienização (HIG).
 
 ### 5. Idioma (MUST)
 - Todos os agentes MUST usar a variante de Português exigida no prompt de *system* em vigor para o seu loop (PT-BR ou PT-PT), especialmente ao criar mensagens, comentários para o utilizador, relatórios estruturados ou justificações de arquitetura. O código (variáveis, classes e commits) SHOULD acompanhar os padrões do projeto (mistura de PT/EN).
+
 ### 6. Design System e Interface (MUST)
-- Fonte Única de Verdade: O arquivo `ui/theme.py` será a única fonte de design tokens (cores, tipografia, dimensões). É proibido o uso de hex codes, estilos ou fontes hardcoded espalhados pelos componentes CustomTkinter.
-- Separação de Responsabilidades (UI Burra): A interface serve apenas para renderização. Nenhum componente do frontend pode possuir lógicas de negócio complexas ou acessar o domínio/backend diretamente. Os dados devem transitar via controladores ou callbacks.
+- **Fonte Única de Verdade:** O arquivo `ui/theme.py` será a única fonte de design tokens (cores, tipografia, dimensões). É proibido o uso de hex codes, estilos ou fontes hardcoded espalhados pelos componentes CustomTkinter.
+- **Separação de Responsabilidades (UI Burra):** A interface serve apenas para renderização. Nenhum componente do frontend pode possuir lógicas de negócio complexas ou acessar o domínio/backend diretamente. Os dados devem transitar via controladores ou ViewModels.
+- **Isolamento de Dados:** Módulos de UI (ex: `janela_analise_completa.py`) MUST NOT conter operações de limpeza ou transformação de DataFrames Pandas. Esta lógica deve ser encapsulada em Application (Presentation Models).
+
+### 7. Organização e Coesão de Serviços (MUST)
+- A pasta `services/` MUST ser agrupada por contexto delimitado (Bounded Context) ou infraestrutura (ex: `infra/gal`, `infra/sqlite`, `infra/observability`). Novas adições genéricas na raiz de `services/` são proibidas.
+- Lógicas de concorrência e transação (ex: *locks* de idempotência) MUST ser encapsuladas em Repositórios/Portas, e não vazadas para Casos de Uso.
+
+### 8. Deprecação Rigorosa (MUST)
+- Módulos paralelos órfãos (como o pacote `analise/`) MUST ser congelados e documentados como depreciados. É estritamente proibido criar novos consumidores para esses pacotes sem decisão humana (DHP).

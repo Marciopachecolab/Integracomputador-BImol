@@ -264,16 +264,37 @@ class TelaConfiguracoes(ctk.CTkFrame):
             text_color=Theme.TEXT_PRIMARY
             )
             msg.pack(pady=50)
-            
+
+        # Repopula os widgets recem-criados desta categoria com os valores atuais
+        # (config ou pendentes). Sem isso, categorias carregadas sob demanda nascem
+        # com switches/combos no default OFF e nao refletem a config salva
+        # (ex.: gal_integration.headless=true aparecia desligado).
+        self._carregar_valores()
+
     def _carregar_config_gal(self):
         """Carrega configurações do GAL"""
         self._criar_secao("Integração GAL")
-        
+
         self._criar_combobox(
             "Ambiente de Envio",
             "gal_integration.base_url",
             ["https://galteste.saude.sc.gov.br", "https://gal.saude.sc.gov.br"],
             "Endereço base do sistema GAL para onde os resultados serão enviados"
+        )
+
+        self._criar_secao("Comportamento do Envio")
+
+        self._criar_switch(
+            "Ocultar navegador durante envio",
+            "gal_integration.headless",
+            "Firefox roda em segundo plano (headless). Login e envio aparecem apenas no terminal da janela."
+        )
+
+        self._criar_switch(
+            "Enviar sem buscar metadados do GAL",
+            "gal_integration.envio_sem_metadados",
+            "Usa codigoAmostra diretamente como identificador. requisicao e paciente ficam vazios — "
+            "o GAL localiza o registro pelo par codigoAmostra + codigo do exame (ex: VRSRT, PEQZDC)."
         )
     
     def _carregar_config_aparencia(self):

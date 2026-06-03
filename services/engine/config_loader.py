@@ -11,7 +11,7 @@ from utils.logger import registrar_log
 class ConfigLoader:
     """Load profiles/protocols/rules with encoding-hardening for legacy ingest."""
 
-    BASE_PATH = Path("banco")
+    BASE_PATH = Path("banco_template")
 
     @staticmethod
     def _read_header_with_policy(file_path: str, max_chars: int = 4000) -> str:

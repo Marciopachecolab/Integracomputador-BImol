@@ -219,8 +219,21 @@ def safe_operation(
     fallback_msg: str = None,
     show_error: bool = True,
     context: str = None,
+    *,
+    propagate_critical: bool = False,
 ):
-    """Decorator para operacoes seguras com tratamento de erro automatico."""
+    """Decorator para operacoes seguras com tratamento de erro automatico.
+
+    Args:
+        fallback_value: valor retornado em caso de excecao (modo fail-open).
+        fallback_msg: mensagem amigavel exibida no dialog de erro.
+        show_error: se True, exibe dialog de erro ao usuario.
+        context: rotulo de contexto para o log (default: nome da funcao).
+        propagate_critical: se True, re-levanta a excecao apos log/notificacao
+            (em vez de retornar fallback_value silenciosamente). Use em pontos
+            onde a falha NAO deve ser silenciada (backup, persistencia, save
+            critico de config). T-062 (fail-closed).
+    """
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
@@ -235,6 +248,8 @@ def safe_operation(
                         ErrorHandler.show_error(title="Erro", message=fallback_msg, exception=exc)
                     else:
                         ErrorHandler.show_error(exception=exc)
+                if propagate_critical:
+                    raise
                 return fallback_value
 
         return wrapper

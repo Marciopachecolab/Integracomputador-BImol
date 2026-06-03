@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 
-from db.db_utils import salvar_historico_processamento
+from services.reports.history_report import salvar_historico_processamento
 from services.core.config_service import config_service
 from utils.after_mixin import AfterManagerMixin
 from utils.logger import registrar_log

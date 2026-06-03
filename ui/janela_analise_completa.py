@@ -1646,8 +1646,10 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
     def _salvar_selecionados(self):
         """Salva TODAS as amostras no histórico e pergunta sobre envio ao GAL."""
         try:
-            from services.reports.history_report import gerar_historico_csv
-            from db.db_utils import salvar_historico_processamento
+            from services.reports.history_report import (
+                gerar_historico_csv,
+                salvar_historico_processamento,
+            )
             from exportacao.gal_formatter import formatar_para_gal
             from datetime import datetime, timezone
             

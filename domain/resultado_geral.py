@@ -27,17 +27,51 @@ def _norm(s: object) -> str:
     return str(val).strip().casefold()
 
 
-def calcular_resultado_geral(rp_valido: bool, alvos: Dict[str, str]) -> str:
+def is_amostra_vazia(valor: object) -> bool:
+    """Define o que e um "poco vazio" em qualquer exame.
+
+    Um poco e considerado vazio (e portanto Invalido) quando o codigo/anotacao
+    da amostra:
+      - esta em branco/ausente;
+      - e apenas "X";
+      - comeca com o texto "Vazio" (ex.: rotulo "Vazio_A1");
+      - e um marcador textual de ausencia ("NAN"/"NONE").
+
+    Regra de dominio unica reutilizada pelo pipeline de analise.
+    """
+    if valor is None:
+        return True
+    s = str(valor).strip()
+    if s == "":
+        return True
+    up = s.upper()
+    if up in ("X", "NAN", "NONE"):
+        return True
+    if up.startswith("VAZIO"):
+        return True
+    return False
+
+
+def calcular_resultado_geral(
+    rp_valido: bool,
+    alvos: Dict[str, str],
+    amostra_vazia: bool = False,
+) -> str:
     """
     Calcula Resultado_geral com prioridade canônica.
 
     Args:
         rp_valido: True se o RP está dentro dos limites aceitáveis.
         alvos: {nome_alvo: resultado_string} — não incluir RP neste dict.
+        amostra_vazia: True quando o poço está vazio (sem código, "X" ou
+            iniciando com "Vazio"). Poço vazio é sempre Inválido.
 
     Returns:
         Uma das constantes RESULTADO_* ou "Detectável para <alvos>".
     """
+    if amostra_vazia:
+        return RESULTADO_INVALIDO
+
     if not rp_valido:
         return RESULTADO_INVALIDO
 

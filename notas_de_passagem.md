@@ -1,5 +1,228 @@
 # Notas de Passagem
 
+---
+
+## 2026-06-02 — Fase 5 (Audit Refactoring) — implementação concluída
+Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
+
+- **T-050, T-051a, T-051, T-052, T-053** executadas (5 commits: `e59f27f`, `d56e719`,
+  `b0a38a3`, `ad17ac0`, `4eb4c3d`).
+- **Lockout server-side ATIVO** em `autenticacao/auth_service.py` (ÚNICO `.py` de produção tocado).
+- Política: 5 tentativas → 15 min bloqueio + auto-desbloqueio na expiração.
+- Lockout check ANTES de bcrypt (evita timing leak/enumeração); mensagem genérica
+  no serviço (sempre `None` em falha — OWASP A07). Hash bcrypt mantido.
+- Persistência: helper `_persistir_estado_tentativas` → `UserRepository.update` por
+  linha (CSVFileLock no adapter CSV; backend ativo = `csv`). Passa `locked_until=""`
+  explícito para LIMPAR bloqueio (None = "sem alteração" no contrato).
+- **Bug capturado na validação adversária (T-052) e corrigido em T-051:** rota inicial
+  `save_users_df` coagia `bloqueado_ate=""`→`None` e nunca limpava o bloqueio + tinha
+  semântica delete-missing. Trocado por `repo.update` cirúrgico.
+- **Achados registrados** (`docs/specs/tasks.md`, não-bloqueantes):
+  - `T-051-FIND-SQLITE`: `SQLiteUserRepositoryAdapter.update` não persiste
+    `failed_attempts`/`locked_until` (fail-open SE backend trocado p/ sqlite; csv ativo OK).
+  - `T-051-FIND-UIMSG`: `login.py` ainda revela "N tentativas restantes" (OWASP A07 na UI);
+    fora do escopo Fase 5 (§9 — não tocar login.py); endereçar em rodada UI/Fase 9.
+- Evidência de testes: **21 passed** (13 guardiões + 4 smoke + 4 lockout), execução
+  sequencial (sem `-n auto`, T-AUD-021). Caracterização (T-051a) verde antes e depois da impl.
+- **Suíte completa `pytest tests/` NÃO concluída:** hang conhecido de GUI/Tk no Windows
+  (process ininterruptível, documentado na nota da Fase 4 + T-AUD-021); não é regressão.
+  Evidência via subconjunto de 21 testes relevantes.
+- **PENDENTE PILOTO 7 dias** (sub-fase 5.4 — handoff em `docs/specs/decisoes_humanas/phase5_piloto_handoff.md`
+  e espelho `snapshots/phase5_piloto_handoff.md`).
+- Não tocados: `core/authentication/user_manager.py` (DEC-003), `autenticacao/login.py` (§9),
+  `CLAUDE.md`/`AGENTS.md` (guardião T-012), 13 guardiões existentes.
+- Próxima rodada técnica: Fase 6 (Fail-closed + cadastros_ui split) — pode iniciar em
+  paralelo ao piloto, mediante autorização.
+
+---
+
+## 2026-06-02 — Fase 4 (Audit Refactoring) concluída
+Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
+
+- **T-040, T-041, T-042, T-043, T-044, T-045** executadas (6 commits: `20e3e35`, `2e4fbc0`, `640d57b`, `6781b14`, `10515bc`, `db40fb7`).
+- **5 guardiões import-ban novos** (AST/regex, REPO_ROOT relativo): `analise`, `extracao`, `scratch`, `sql` (import-ban de pastas órfãs; 0 callers confirmados por 4 subagentes Explore) + `scripts_no_hardcoded_paths`.
+- **6 scripts refatorados** (paths absolutos → relativos; sintaxe validada via py_compile / parse mínimo, SEM execução):
+  - `check_bom.py` → `Path(__file__).resolve().parent.parent`
+  - `limpeza_logs_reports.ps1`, `limpeza_prioridade_alta.ps1`, `organizar_documentacao.ps1` → `(Resolve-Path "$PSScriptRoot/..").Path`
+  - `run_daily_parity_snapshot.cmd` → `pushd %~dp0.. / set ProjectRoot=%CD% / popd` (force-add: `.gitignore:404 **/*.cmd`; DHP commit-cmd aprovado "Force-add só este .cmd")
+  - `run_all_tests.ps1` → ativação condicional de `.venv` do repo (antes `C:/Users/marci/Desktop/venv`; DHP Q2 aprovado opção A)
+- **13 guardiões totais verdes** (Fases 0+1+3+4): 13 passed. Verificação adversária independente (kant) sem achados bloqueantes.
+- **ZERO `.py` de runtime modificado**; pastas órfãs (`analise/ extracao/ scratch/ sql/ db/`) intactas (arquivamento físico fica para Fase 7 — DHP-13).
+- **[PENDÊNCIA] DHP Q1 (Fase 4, opção A):** `scripts/generate_phase0_baseline.py:41,44` referencia fixtures `.xlsx` de laboratório em `Downloads\18 JULHO 2025\` (dados FORA do repo, não-relativizáveis). NÃO refatorado; guardião T-044 deliberadamente restrito ao padrão `Downloads/Integragal` para não bloquear esse script dev. Tratar em rodada futura dedicada (parametrizar via CLI/env quando houver decisão).
+- **Próxima rodada:** Fase 5 (Lockout server-side de autenticação — T-050..T-053). PRÉ-REQUISITO: DHP "política de senha" (limite N tentativas, duração bloqueio, recuperação, exigências mínimas) ANTES de implementar. NÃO iniciada — aguarda autorização.
+
+---
+
+## Sessao 2026-06-01 — Audit Refactoring Fase 0 (Emergencia)
+Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
+
+### [CRITICAL_FINDING] Import circular pre-existente envio_gal <-> ui (severidade ALTO)
+- **Arquivo/linha:** `exportacao/envio_gal.py:84` (`from ui.gal_ui_dialog_adapter import GalUIDialogAdapter`, top-level) <-> `ui/__init__.py:11` (import eager de `main_window`) <-> `ui/menu_handler.py:16` (`from exportacao.envio_gal import abrir_janela_envio_gal`).
+- **Sintoma:** `import exportacao.envio_gal` falha com `ImportError: cannot import name 'abrir_janela_envio_gal' ... partially initialized module` quando `envio_gal` e o primeiro modulo a tocar `ui`.
+- **Impacto real:** o app inicializa normalmente via `python main.py` (que importa `ui` primeiro — `main.py:16`); o ciclo so quebra sob ordem de import nao-ui-first (como o comando literal do T-002). NAO e regressao do csv_safety (restaurado identico ao HEAD) — esta presente no HEAD baseline `f28ce1e`.
+- **Evidencia:** ordem `import ui; import exportacao.envio_gal` -> OK; ordem `8 callers; envio_gal` -> ImportError. T-002 re-evidenciado verde com ordem ui-first (`all-ok`).
+- **Governanca:** FORA do escopo da Fase 0; tocar `envio_gal.py`/`ui` arrisca tags GAL-ROB-* e sobrepoe a forense da Fase 2 (T-021/T-022 examinam `envio_gal.py`, incidente 2026-05-23) e o T-061 (Fase 6, integra `assert_valid_gal_payload` em `envio_gal.enviar_amostra`). Divergencia realidade<->SDD nao listada em `spec.md §8.3`.
+- **Recomendacao:** avaliar import lazy de `GalUIDialogAdapter` (dentro da funcao consumidora) durante a Fase 2/6, com cobertura previa. Decisao humana: registrada na sessao (usuario optou por re-evidenciar T-002 com ordem sa e seguir Fase 0).
+
+### [FINDING] Credencial hardcoded em modulo legado (severidade ALTO, follow-up)
+- **Arquivo/linha:** `core/authentication/user_manager.py:~1811` (`password="admin123456"`).
+- **Contexto:** modulo LEGADO em deprecacao controlada (DT-003 / DEC-003), neutralizado e import-banido (guardiao T-AUD-004A). NAO e runtime; remocao fisica exige DEC futura.
+- **Tratamento:** fora do escopo da Fase 0. O guardiao T-006 (`tests/test_no_hardcoded_credentials.py`) exclui `core/` deliberadamente e documenta este achado. Tratar em rodada futura (correlato a US-3/DEC-003).
+
+### Fase 0 (Emergencia) — CONCLUIDA
+- **T-000** [BLOCK] backup pre-refator: `snapshots/pre_audit_refactor_20260531/` (21.759 arquivos) + `_manifest_sha256.csv` (21.759 hashes, 0 falhas). Sem commit (`snapshots/` e gitignored).
+- **T-001** [BLOCK] `utils/csv_safety.py` restaurado de `HEAD` (byte-identico; deleção era working-tree nao-commitada). `from utils.csv_safety import sanitize_csv_value` -> OK. Sem commit (realinhou ao HEAD).
+- **T-002** [BLOCK] 10 callers de csv_safety importam sob ordem real de boot (ui-first): `all-ok`. Sem commit (validacao). Ver [CRITICAL_FINDING] import circular acima.
+- **T-003** [P] guardiao `tests/test_no_broken_csv_safety_imports.py` (AST, BOM-tolerante) -> 2 passed. Commit `4f4c705`.
+- **T-004** [P][DHP] `revert_info.txt` -> `docs/obsoletos/incidents/revert_envio_gal_20260523.txt` + README de advertencia (prompt injection). DHP aprovada. Commit `315b403`.
+- **T-005** [P][DHP] `test_login.py` DELETADO (senha '123456' hardcoded, API async errada). DHP=(A). Commit `61b76fb`.
+- **T-006** [P] guardiao `tests/test_no_hardcoded_credentials.py` (AST) -> 1 passed. Commit `e0e0069`.
+- **Branch:** `refactor/audit-refactoring` (criada a partir de `main`).
+- **Verificacao final:** AC-1.1 OK; 3 guardioes passed; raiz sem `test_login.py`/`revert_info.txt`.
+- **Proxima rodada:** Fase 1 (T-010 T-AUD-008 dominio puro; T-011 T-AUD-004A legacy auth; T-012 AGENTS==CLAUDE hash). NAO iniciada — aguarda autorizacao.
+
+---
+
+## Sessao 2026-05-30 — Dashboard analitico, filtros, detalhe de corrida e correcoes de UI
+Executor: Claude Code (Opus 4.8)
+
+### Escopo implementado (rodada autorizada de codigo/UI)
+- **DASH-003** — `obter_estatisticas_gestao` conta apenas colunas canonicas `RES_*` (ignora `SRC_RES_*` e controles `RP|CN|CP|GERAL`): elimina a duplicacao "RES X"+"SRC RES X" no quadro "Doencas Mais Positivas", corrige a Positividade e limpa rotulos (`limpar_nome_alvo`). Top 5 → Top 12.
+- **DASH-004** — Gestao Clinica: barra (Top 10 + rotulos) + radar + pizza (Top 8 + "Outros") numa unica `Figure`, tabela-resumo lateral (Alvo/Positivos/%) e rotulos em negrito.
+- **DASH-005** — Nova aba "Visao Analitica": `obter_painel_analitico` (KPIs Volume 15d/Volume-dia/Positividade/Pendentes GAL; heatmap dia x doenca; tabela de Ct 15/7/3 dias com setas ▲▼➖ e % de variacao; `positividade_por_alvo`). Clique num alvo destaca no heatmap + tabela (`_selecionar_alvo`). Fontes da aba ampliadas (+100%). Pendentes GAL = status reconciliado != `enviado`/`duplicado` (`_contar_pendentes_gal`).
+- **DASH-006** — Barra de filtros reutilizavel (`_criar_barra_filtros`) nas abas Operacional (filtra cards/grafico/tabela via `_df_operacional`/`_janela_filtro`) e Visao Analitica (somente Exame).
+- **DASH-007** — Detalhe da corrida: coluna "Corrida" (`nome_corrida`); janela de resultados read-only corrigida (bug `from ui.theme.design_tokens import CORES, FONTES` — modulo nao expoe esses nomes; agora usa `CORES`/`FONTES` de `.estilos`); colunas limpas (Amostra/Poco/Resultado/Status + `Res`/`Ct` por alvo). Botao "Abrir Mapa Definitivo (Excel)" abre o `mapa_placa_*.xlsx` real em `<data_root>/mapas` via `_localizar_mapa_definitivo` (match normalizado por `nome_corrida`/arquivo origem; 17/17 corridas localizadas no teste).
+- **DASH-008** — Tabela "Corridas Recentes": caixa de busca lateral desativada; barra de rolagem reancorada no mesmo container; ordenacao por clique no cabecalho (1o asc, 2o desc; `Data/Hora` cronologico).
+- **DASH-FIX-001** — `CardResumo.set_valor`/`set_indicativo` (corrige cards de Gestao zerados por `AttributeError` silencioso); Gestao/Visao Analitica atualizam do SQLite independentemente do CSV.
+- **CFG-UI-001** — `tela_configuracoes._carregar_categoria` chama `_carregar_valores()`; corrige switch "Ocultar navegador durante envio" exibido OFF apesar do default `headless=true`.
+- **WIZ-UI-001** — Passo 1 do wizard em grade compacta (cabe sem rolagem; botao "Editar Exame Selecionado" volta a aparecer) + botao "Limpar Etapa" (`clear_current_step`).
+- **CAL-UI-001** — `SimpleCalendar(date_format=...)`; botoes de calendario nos campos De/Ate da Gestao.
+
+### Verificacao
+- Validacao headless: analytics (KPIs/heatmap/ct_table sem rotulos `SRC`/`RES`), construcao da janela read-only, locator de mapa (17/17), ordenacao da tabela (asc/desc), cards `set_valor/set_indicativo`.
+- `python -m pytest tests/ -k "analytics or dashboard or relatorio or estatistic"` → 1 passed; import smoke OK. Sem novas dependencias.
+
+### Ponto de rollback
+- `git` indisponivel no ambiente (PATH). Criado backup timestampado `_rollback_20260530_100900/` com o estado anterior dos 6 arquivos tocados (UI). Artefato transitorio — candidato a `.gitignore`/remocao em rodada de higiene (nao remover sem decisao).
+
+### Documentos atualizados nesta sessao
+- `docs/specs/design.md` — §3.8 (Dashboard 3 abas) reescrita e §14.2 adicionada.
+- `docs/specs/tasks.md` — §11.3: DASH-003..008, DASH-FIX-001, CFG-UI-001, WIZ-UI-001, CAL-UI-001.
+- `docs/specs/requirements.md` — CA-16 (dedup/leitura SQLite das analiticas) e CA-17 (detalhe read-only + Mapa Definitivo).
+- `CLAUDE.md` e `AGENTS.md` — §16 atualizado com as tarefas concluidas (nao repetir).
+- `notas_de_passagem.md` — esta entrada.
+
+### Revisao de estrutura
+- `_rollback_20260530_100900/` presente na raiz (ver acima). Nenhum `_diag_*.py` temporario remanescente (removidos apos uso). Diretorio canonico de mapas confirmado: `<data_root>/mapas` (`dados/mapas`, 49 arquivos).
+
+---
+
+## Sessao 2026-05-29 — Uniformizacao de paths de logs e dados operacionais
+Executor: Claude Code (Sonnet 4.6)
+
+### Escopo implementado
+
+**LOG-UNIF-001 — Uniformizacao de locais de gravacao de logs**
+- Bug corrigido: `config/default_config.json` tinha `logs_dir = "dados/banco"` (diretorio de dados legados). Corrigido para `"logs"`.
+- `utils/audit_logger.py`: `AuditLogger.__init__` aceita `None` e usa `_resolve_audit_log_dir()` via config service.
+- `services/legacy_panel_governance.py`: `DEFAULT_LOG_PATH` substituido por `_resolve_default_log_path()` com prioridade: env var → config service → fallback.
+- `utils/dataframe_reporter.py`: `DataFrameReporter.__init__` aceita `None` e usa `_resolve_dataframe_log_dir()` via config service.
+- Teste-guardiao criado: `tests/test_log_paths_uniformization.py` (9 casos, 9 passed).
+
+**LOG-UNIF-002 — Uniformizacao de fallbacks de pastas de dados**
+- `services/path_resolver.py:34`: fallback de `resolve_banco_dir()` alterado de `banco/` para `banco_runtime/`.
+- `services/engine/config_loader.py:14`: `ConfigLoader.BASE_PATH` alterado de `Path("banco")` para `Path("banco_template")`. `get_equipment_profiles()` agora encontra os JSONs reais.
+- `scripts/normalize_legacy_csv_utf8.py` e `scripts/scan_csv_encoding_conformance.py`: `DEFAULT_ROOTS` ampliado para incluir `banco_runtime`.
+- Migracao de dados: `corridas_vr1e2_biomanguinhos_7500.csv` (296KB) e `corridas_zdc_biomanguinhos.csv` (42KB) movidos de `dados/banco/` para `logs/`. Backup em `snapshots/dados_banco_backup_20260529/`.
+- `historico_analises.csv` (280KB) ja estava em `logs/` apos correcao do `logs_dir`.
+- Teste-guardiao criado: `tests/test_banco_path_fallbacks.py` (7 casos, 7 passed).
+- Suite completa: 55 testes, zero regressoes.
+
+### DHPs abertas nesta sessao
+- **DHP-10**: `dados/banco/historico.db` (131KB, 25/05/2026, mais antigo) — inspecionar antes de excluir.
+- **DHP-11**: CSVs duplicados residuais em `dados/banco/` (equipamentos, exames, placas, regras, usuarios) — decidir destino.
+- **DHP-12**: `banco_template/historico.db` (3.3MB, maior que o ativo de 1.5MB em banco_runtime/) — conteudo desconhecido; inspecionar antes de qualquer decisao.
+
+### Documentos atualizados nesta sessao
+- `docs/specs/tasks.md` — adicionados LOG-UNIF-001, LOG-UNIF-002, DHP-10, DHP-11, DHP-12 e rastreabilidade.
+- `docs/specs/design.md` — adicionados §3.10 (arquitetura de paths) e §13 (atualizacoes 2026-05-29); §10 atualizado com novas DHPs.
+- `CLAUDE.md` e `AGENTS.md` — atualizados §10, §11, §13 e §16.
+- `notas_de_passagem.md` — esta entrada.
+
+### Arquivos criados
+- `tests/test_log_paths_uniformization.py`
+- `tests/test_banco_path_fallbacks.py`
+- `snapshots/dados_banco_backup_20260529/` (backup dos corridas CSVs antes de mover)
+
+### Arquivos modificados (codigo)
+- `config/default_config.json` (logs_dir corrigido)
+- `utils/audit_logger.py` (config-driven)
+- `utils/dataframe_reporter.py` (config-driven)
+- `services/legacy_panel_governance.py` (config-driven)
+- `services/path_resolver.py` (fallback banco_runtime)
+- `services/engine/config_loader.py` (BASE_PATH banco_template)
+- `scripts/normalize_legacy_csv_utf8.py` (DEFAULT_ROOTS)
+- `scripts/scan_csv_encoding_conformance.py` (DEFAULT_ROOTS)
+
+### Arquivos movidos (dados)
+- `dados/banco/corridas_vr1e2_biomanguinhos_7500.csv` → `logs/` (296KB)
+- `dados/banco/corridas_zdc_biomanguinhos.csv` → `logs/` (42KB)
+
+---
+
+## Sessao 2026-05-30 — GAL Robustez/UX/Dashboard + correcao de paths (CONFIG-PATH-001)
+Executor: Claude Code (Opus 4.8)
+
+### Escopo implementado
+
+**Robustez e correcao de bugs GAL (GAL-ROB-001..010):**
+- S4: worker exception → registro estruturado `erro_critico` (nao mais `print()`).
+- S2: metadados vazios nao abortam o lote; amostras recebem `nao_encontrado`.
+- S5: falhas de paginas de metadados acumuladas e reportadas explicitamente.
+- S10: CSV validado antes de abrir o Firefox (falha cedo).
+- S11: aviso antecipado de `gal_exame_codigo` ausente.
+- S14: mascaramento de campos identificaveis na resposta do servidor antes de logar.
+- S22: `inflight_keys` atomicas sob lock para prevenir envio duplo de linhas identicas no mesmo CSV.
+- S23: normalizacao de datas (DD/MM→ISO) simetrica no reconciliador GAL.
+- S24: `validate_gal_payload` valida nao-vazio de `codigo`.
+- GAL-ROB-010: fallback por `codigo_amostra` no reconciliador quando `kit`/`lote` ausentes.
+
+**Features e toggles (GAL-FEAT-001..005 + GAL-PERF-001):**
+- `USE_GAL_ENVIO_SEM_METADADOS`: pula `/lista/`, usa `codigoAmostra` direto. Toggle em Configuracoes GAL.
+- `construir_payload`: `codigo` usa `codigoAmostra` como fallback quando `meta` vazio.
+- Firefox headless por default (`gal_integration.headless: true`). Toggle em Configuracoes GAL.
+- Terminal exibe linha por amostra (`codigoAmostra → STATUS`). Rollback: `USE_GAL_TERMINAL_LOG_POR_AMOSTRA=false`.
+- Secao "Comportamento do Envio" adicionada nas Configuracoes GAL.
+- Janela de metadados: 365 → 15 dias.
+
+**Dashboard e relatorios (DASH-001..002):**
+- Dashboard principal: fonte primaria agora e `ExamRunsSQLiteRepository` (`historico.db`) com status GAL.
+- Gestao Clinica: campos De/Ate + botao Filtrar adicionados.
+
+**CONFIG-PATH-001 (rodada autorizada):**
+- `config.json` `paths.logs_dir`: `"dados/banco"` → `"logs"` (elimina pasta `dados/dados/`).
+- `config.json` `paths.gal_history_csv` e `paths.gal_upload_history_csv`: `"logs/total_importados_gal.csv"` → `"logs/historico_analises.csv"`.
+- `config/default_config.json` alinhado com os mesmos valores.
+
+### Pendencias abertas desta sessao
+- **GAL-PEND-001**: S3/S6 — retry com classificacao de erro transitorio vs definitivo em `enviar_amostra()`. Requer validacao de idempotencia do endpoint `/gravar/`.
+- **GAL-PEND-002**: S18 — suite de testes sem Selenium real para o modulo GAL.
+- **MEDIA-3 residual**: `GAL_PAYLOAD_REQUIRED_FIELDS` lista `requisicao`/`paciente` como `required` no schema JSON, mas no modo sem metadados eles sao intencionalmente vazios. Schema nao foi versionado. Risco: suites futuras com `jsonschema` formal reprovariam payloads sem metadados. Registrar CA em `requirements.md` em rodada futura.
+- **BAIXA-1 residual**: campo `_raw` populado antes do mascaramento; dados de resposta de erro podem persistir no journal. Baixo risco operacional atual.
+
+### Regressao
+- 77 testes preexistentes passaram (zero regressoes). Sem novos guardioes especificos para GAL-ROB/FEAT — GAL-PEND-002 registra essa pendencia.
+
+### Documentos atualizados nesta sessao
+- `docs/specs/tasks.md` — §11 adicionado; tabela INST-001/002/003 corrigida para Concluido.
+- `docs/specs/design.md` — §3.5 reescrito; §3.8 atualizado.
+- `CLAUDE.md` e `AGENTS.md` — §16 atualizado com novas tarefas e INST-001/002/003 movidos para concluidas.
+- `config.json` — 3 paths corrigidos (rodada autorizada).
+- `config/default_config.json` — paths alinhados com config.json.
+- `notas_de_passagem.md` — esta entrada.
+
+---
+
 Data: 2026-05-11  
 Executor: Codex (orquestracao estilo maestro + execucao incremental com TDD)
 
@@ -1118,3 +1341,314 @@ Executor: Codex, com subagente read-only.
 - Documentacao: `GIT-001` atualizado como concluido com ressalvas; criada pendencia `GIT-002` para allowlist final do primeiro commit.
 - Nao executado: `git add`, commit, push, `git rm --cached`, remocao, movimentacao, limpeza de banco, publicacao GitHub ou abertura de bancos/credenciais/usuarios.
 
+
+## 2026-05-28 - Atualizacao do Kit GAL para VR1eVR2 BioManguinhos
+Alteracao do kit_codigo de 427 para 1125 no arquivo config\exams\vr1e2_biomanguinhos_7500.json conforme solicitacao do usuario. A alteracao foi avaliada pelo antigravity-skill-orchestrator como sendo de complexidade simples e, portanto, executada diretamente.
+
+---
+
+## Sessao 2026-05-29 - [CRITICAL_FINDING] Envio GAL falhava com "0 metadados encontrados"
+Executor: Claude Code (Opus 4.8)
+
+### Sintoma
+Envio GAL de 2026-05-29 abortou: "Busca de metadados finalizada: 0 encontrados" -> "ERRO CRITICO: Nenhum metadado encontrado". O envio de 2026-05-28 16:01 funcionara (45 encontrados).
+
+### Causa raiz
+O exame VR1e2 foi reeditado/salvo pelo wizard de cadastro em 2026-05-28 21:58 (comentario "Cadastro via wizard V2 compat mode"). A regravacao de config/exams/vr1e2_biomanguinhos_7500.json REMOVEU gal_exame_codigo ("VRSRT") e trocou panel_tests_id de "1" para o protocol_id "12". Com gal_exame_codigo vazio, exportacao/envio_gal.buscar_metadados nao envia codExame e o filtro local de validacao (linhas 633-649) descarta todas as amostras. As mudancas de path LOG-UNIF-001/002 NAO foram a causa.
+
+Dois bugs de codigo confirmados no fluxo de save:
+- ui/modules/cadastros_ui.py::RegistryExamEditor._exam_to_dict nao serializava gal_exame_codigo (campo perdido em todo save).
+- ui/modules/exam_creator/wizard.py::_build_registry_exam_config gravava panel_tests_id=protocol_id e nunca preservava o valor existente nem o gal_exame_codigo.
+
+### Correcao aplicada (autorizada pelo usuario)
+- Perfis restaurados (valores informados pelo usuario):
+  - VR1e2: gal_exame_codigo="VRSRT", panel_tests_id="1".
+  - ZDC BioManguinhos: gal_exame_codigo="PEQZDC", panel_tests_id="".
+- wizard._build_registry_exam_config agora preserva gal_exame_codigo e panel_tests_id do registry ao reeditar exame existente; exame novo mantem comportamento legado (panel_tests_id=protocol_id, gal vazio).
+- _exam_to_dict passa a serializar gal_exame_codigo.
+- Teste guardiao: tests/test_exam_creator_preserva_gal_codigo.py (3 passed). Suite tests/ completa: 51 passed.
+
+### Nao executado
+Sem alteracao de config.json, sem commit/push, sem abertura de credenciais. Valor original de gal_exame_codigo evidenciado em release/app/config/exams/vr1e2_biomanguinhos_7500.json (VRSRT).
+
+---
+
+## Sessao 2026-05-29 (cont.) - Correcao panel_tests_id VR1e2 + regra de poco vazio
+Executor: Claude Code (Opus 4.8)
+
+### Ajuste 1: panel_tests_id do VR1e2
+Usuario corrigiu: VR1e2 panel_tests_id correto = "12" (nao "1"). config/exams/vr1e2_biomanguinhos_7500.json agora tem gal_exame_codigo="VRSRT", panel_tests_id="12". (ZDC permanece gal_exame_codigo="PEQZDC", panel_tests_id="".)
+
+### Ajuste 2: poco vazio = Invalido (todos os exames)
+Decisao do usuario: poco vazio (codigo da amostra em branco, apenas "X" ou iniciando com "Vazio...") deve ser classificado como Invalido, para todos os exames.
+- Regra de dominio unica: domain/resultado_geral.py::is_amostra_vazia (branco, "X", prefixo "VAZIO", "NAN"/"NONE"). calcular_resultado_geral ganhou parametro amostra_vazia (prioridade maxima -> Invalido).
+- Aplicada no ponto vivo do pipeline: services/analysis/analysis_service.py::_apply_resultado_geral_vectorized — pocos vazios viram Invalido (sobrepondo qualquer classificacao) e sao desmarcados (Selecionado=False), logo nao seguem para envio GAL.
+- O pipeline ja rotulava pocos sem anotacao como "Vazio_<poco>" (linha ~1193); a nova regra fecha o ciclo classificando-os.
+- Modulo legado analise/vr1e2_biomanguinhos_7500.py nao tem chamador vivo (orquestracao usa AnalysisService); nao alterado.
+
+### Testes
+- tests/test_poco_vazio_invalido.py (novo): is_amostra_vazia, calcular_resultado_geral(amostra_vazia=True) e _apply_resultado_geral_vectorized (poco vazio -> Invalido + desmarcado mesmo com RP valido).
+- tests/test_exam_creator_preserva_gal_codigo.py mantido.
+- Suite tests/ completa: 69 passed.
+
+### Nao executado
+Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
+
+---
+
+## Sessao 2026-05-30 - Wizard de criacao de exames: campos GAL + equipamento + fallback painel
+Executor: Claude Code (Sonnet 4.6)
+
+### Escopo (plano agora-avalie-o-wizard-calm-pretzel.md)
+Wizard incompleto para envio GAL: sem captura de gal_exame_codigo, kit_codigo,
+panel_tests_id, export_fields; equipamento/tipo_placa fixos em "7500"/"96";
+fallback de analitos no submit dependia de config GAL.
+
+### Mudancas implementadas
+
+#### ui/modules/exam_creator/wizard.py
+- Passo 1: campos equipamento (CTkComboBox, options de config/contracts/equipment/* ativos) e
+  tipo_placa_analitica (96/48/36). Helper _load_equipment_options carrega equipment_ids ativos.
+- Passo 3: btn_next mudou de "Salvar" para "Proximo >".
+- Novo Passo 4 "Integracao GAL": gal_exame_codigo, kit_codigo, panel_tests_id e tabela de
+  mapeamento alvo -> nome_no_GAL (export_fields). Aviso nao bloqueante se campos vazios.
+- _collect_gal_from_step4: coleta e atualiza exam_data.
+- _build_export_mapping_from_cfg (estatico): reconstroi {alvo: nome_gal} de ExamConfig existente.
+- _build_registry_exam_config: usa todos os campos capturados em vez de fixos; _pick/_pick_list
+  para fallback de edicao (novo=capturado, edicao=capturado ou preservado do registry).
+- _apply_registry_exam_to_wizard: popula equipamento, tipo_placa, gal_exame_codigo, kit,
+  panel_tests_id, export_fields e export_mapping ao editar exame existente.
+- next_step/prev_step: fluxo 1->2->3->4->Salvar; voltar 4->3.
+
+#### exportacao/envio_gal.py
+- _norm_gal_field: normaliza nome de campo GAL (lower, sem acentos/separadores).
+- construir_payload: fallback testes_do_painel a partir de exam_cfg.export_fields quando
+  o painel nao esta em panel_tests; exames com panel na config GAL nao sao afetados.
+
+#### ui/modules/cadastros_ui.py
+- validate_exam: avisos nao bloqueantes (log WARNING) quando gal_exame_codigo/kit/export_fields
+  vazios; save prossegue normalmente.
+
+### Testes
+- tests/test_exam_creator_campos_gal.py (novo, 8 testes):
+  _build_registry_exam_config reflete campos GAL; _build_export_mapping_from_cfg;
+  _norm_gal_field; fallback de painel em construir_payload; painel existente nao afetado;
+  gal_formatter usa kit/painel/analitos do exame; round-trip _exam_to_dict.
+- tests/test_exam_creator_preserva_gal_codigo.py: test_wizard_exame_novo atualizado para
+  comportamento correto (panel_tests_id vazio se Passo 4 nao preenchido).
+- test_initial_setup_e2e: falha pre-existente de ambiente Tk/Python313 (anterior a esta sessao).
+- Suite: 77 testes, 1 falha pre-existente de ambiente sem relacao com as mudancas.
+
+### Nao executado
+Sem commit/push, sem alteracao de config.json, sem abertura de credenciais.
+
+---
+
+## Sessao 2026-06-01 — Audit Refactoring Fase 1 (Guardioes SDD Ausentes) — CONCLUIDA
+
+- T-010, T-011, T-012 executadas. **3 commits** na branch `refactor/audit-refactoring`
+  (74c2ae9, f7f9256, 2701ac1).
+- **5 guardioes Fase 0+1 verdes** (6 itens pytest): csv_safety (2), no_hardcoded,
+  dominio_imports_puros, auth_legacy_user_manager, agents_claude_md_sha_match.
+- **T-AUD-008** e **T-AUD-004A** agora tem fisico correspondente a declaracao SDD
+  (estavam "Concluido" em CLAUDE.md sec.10/15.1 com artefato ausente).
+
+### Detalhe por tarefa
+- **T-010** (AC-3.1): `tests/test_dominio_imports_puros.py` — AST scan de imports
+  proibidos em `domain/` (pandas/selenium/tkinter/etc), allowlist vazia. 1 passed.
+- **T-011** (AC-3.2): `tests/test_auth_legacy_user_manager_no_runtime_imports.py` —
+  AST scan de `core.authentication.user_manager` nos RUNTIME_ROOTS, allowlist vazia
+  (DEC-003). Zero callers runtime confirmado (unica mencao em auth_service.py:14 e
+  docstring, nao import). 1 passed.
+- **T-012** (AC-3.3, AC-16.1): `tests/test_agents_claude_md_sha_match.py` — hash
+  sha256 AGENTS.md == CLAUDE.md. **Sincronizacao previa NAO necessaria**: ja estavam
+  byte-identicos (sha 5ed3ade3); por isso 3 commits e nao 4. 1 passed.
+
+### Achados extras (nao bloqueantes)
+- **[BOM-DOMAIN]** 3 modulos de `domain/` tem BOM UTF-8 (U+FEFF):
+  `__init__.py`, `ct_rules.py`, `plate_mapping.py`. O skeleton de T-010 usava
+  `read_text(encoding="utf-8")` e quebrava em `ast.parse`. Mitigado no guardiao com
+  `utf-8-sig` (mesmo padrao aplicado em T-011). Remocao fisica do BOM dos modulos de
+  producao NAO feita (fora de escopo); candidata a rodada de housekeeping futura
+  (correlato T-AUD-014).
+
+### Nao executado
+- NAO tocado `core/authentication/user_manager.py` (credencial T-AUD-017).
+- NAO investigado import circular `envio_gal:84` (T-AUD-016, Fase 2).
+- Sem alteracao de arquivos de producao (`application/`, `services/`, `ui/`,
+  `exportacao/`, `autenticacao/`) nem de `docs/specs/tasks.md`.
+
+### Proxima rodada
+- Fase 2 (forensics revert envio_gal 2026-05-23 — T-020..T-022). Aguardando autorizacao.
+
+## 2026-06-01 — Fase 2 (Audit Refactoring) concluida
+- T-020 (confirmacao T-AUD-016 em tasks.md), T-021, T-022 + T-AUD-016 investigado.
+- **Timeline + diffs do revert 2026-05-23 documentados** em `snapshots/forensics_*`.
+  - **Achado central:** o baseline git (`f28ce1e`, 2026-05-28) POS-DATA o incidente
+    (2026-05-23). Logo NAO existem SHA-A/SHA-B no git; a restauracao (H2) ja estava
+    consolidada no baseline. `envio_gal.py` aparece uma unica vez no historico (1784
+    linhas committed; 1832 na working tree, +52/-4 nao commitadas).
+  - Evidencia do evento = `revert_info.txt` arquivado (85 linhas removidas, 0 add;
+    hunk `@@ -33,778 +33,336 @@`). Prompt injection na linha 3 IGNORADA.
+  - Classificacao: 28/28 blocos removidos RESTAURADOS (21 path original, 7 com
+    refatoracao de path `services/` modularizado). Zero ausentes. Falso-positivo
+    `GalPay` refutado (truncamento de `GalPayloadValidationError`).
+  - H1 confirmada; H2 confirmada; H3 (csv_safety efeito colateral) consistente.
+- **10 GAL-ROB confirmados INTEGROS** em envio_gal.py atual (10 OK / 0 PARCIAL / 0
+  AUSENTE contra CLAUDE.md 16). Verificacao via Explore + leitura direta + skill
+  architect-review. Dois falsos-negativos refutados: ROB-007 (inflight_keys em
+  `application/gal_send_use_case.py:273-314`, S22) e ROB-001 (handler estruturado em
+  `envio_gal.py:1045-1049`; traceback completo = follow-up nao-bloqueante).
+- **T-AUD-016 (import circular) caracterizado**: cadeia
+  envio_gal.py:84 -> ui/gal_ui_dialog_adapter -> ui/__init__:11 -> ui/main_window:31
+  -> ui/menu_handler:16 -> exportacao.envio_gal. Lazy import viavel; recomendacao
+  long-term = inversao via Port (Opcao B, ADR-A6 / US-6). Endereçar em Fase 6 (T-061).
+- 6 guardioes Fase 0+1 continuam verdes (6 passed).
+- Verificacao adversaria (kant): APROVADO, zero `.py` de producao modificados, zero
+  instrucoes do revert_info.txt executadas.
+- Desvio documentado: `snapshots/` esta em `.gitignore` (linha 1024); arquivos
+  forensics_* commitados via `git add -f` (sem alterar `.gitignore`).
+
+### Nao executado (preservado para fases futuras)
+- NAO modificado nenhum `.py` de producao (Fase 2 read-only por design).
+- NAO corrigido import circular T-AUD-016 (Fase 6, ADR-A6).
+- NAO tocado legado user_manager.py (T-AUD-017) nem BOM em domain/ (T-AUD-018).
+
+### Proxima rodada
+- Fase 3 (Housekeeping root + requirements.txt sem psycopg2 + 2 guardioes) — T-030..T-038.
+  Aguardando autorizacao do usuario.
+
+## 2026-06-02 — Fase 3 (Audit Refactoring) concluida
+- T-030, T-031, T-032, T-033, T-035, T-036, T-037, T-038 (+T-038b) executadas.
+- **Root limpo: de 21 para 17 arquivos** (todos canonicos conforme CLAUDE.md §4).
+- DHPs aprovadas em lote (A-E) pelo usuario antes de iniciar:
+  - (A) `battery-report.html` DELETADO (lixo Windows powercfg; gitignored).
+  - (B) `.env.txt` -> `pythonpath.env` (naming enganoso; conteudo real `PYTHONPATH=.`;
+    zero callers `.py`; gitignored).
+  - (C) `config.json.bak` -> `config/backups/config_root_pre_merge.json` (gitignored).
+  - (D) 2x `relatorio_final_corrida_*.json` (vr1, last) -> `snapshots/runtime_artifacts/`
+    (DEC-005; mantidos gitignored, sem excecao no `.gitignore`).
+  - (E) `.bak` de zonas reguladas -> `docs/obsoletos/refactor_attempts/` + README.
+- **T-038b (extensao do lote E, aprovada explicitamente pelo usuario em runtime):**
+  a pre-verificacao do T-037 detectou **6 .bak adicionais** alem dos 2 do lote E:
+  `services/core/config_service.py.bak.moderniza`,
+  `ui/components/plate_viewer.py.bak.moderniza`,
+  `ui/components/plate_viewer.py.bak.popup_fix` (versionado),
+  `ui/modules/cadastros_ui.py.bak.moderniza`,
+  `ui/modules/exam_creator/wizard.py.bak.moderniza`,
+  `ui/modules/extraction_plate_mapping.py.bak`. Todos os 8 arquivados; runtime
+  areas com **0 .bak**. Dois versionados movidos via `git mv`
+  (`domain_ct_rules_runtime...target_recalc_fix`, `ui_components_plate_viewer...popup_fix`);
+  6 gitignored via `Move-Item` (preservados fisicamente).
+- T-030: `psycopg2-binary>=2.9.0` removido de `requirements.txt` (CLAUDE.md §7). Grep
+  global confirma **zero `import psycopg2` em .py** (inclusive `db/db_utils.py` — a
+  inferencia da AUDITORIA.md nao se confirma). Guardiao
+  `tests/test_no_psycopg2_imports.py` (AST) com allowlist temporaria `db/`, `sql/`,
+  `docs/obsoletos/` (Fase 7).
+- T-036: `pytest.ini` `testpaths = tests` (removido `test_feature_flag_toggle.py`
+  inexistente); collect-only sem warning.
+- T-034 **DEFERIDO**: `testedb.csv` (810 KB) NAO tocado — aguarda rodada PRIV-001 LGPD
+  separada (nao-bloqueante para Fase 3). Permanece no root.
+- **8 guardioes verdes (pytest real): `8 passed in 2.90s`** — csv_safety x2, no_hardcoded,
+  dominio_puros, auth_legacy, agents_claude_hash, no_psycopg2, no_bak_files_in_runtime.
+- Verificacao adversaria inline (git + filesystem + grep): root <=18, removidos/movidos
+  confirmados, requirements/pytest.ini limpos, testedb.csv preservado, **zero `.py` de
+  producao modificado** (Fase 3 tocou so requirements.txt, pytest.ini, 2 testes novos,
+  README e 2 renames de .bak sem alterar conteudo).
+- Commits Fase 0/1/2 (>=15) preservados; 5 novos commits Fase 3 no topo:
+  e92aa20 (T-038), 1297978 (T-038b), e27579a (T-036), caaed7c (T-037), 1004590 (T-030).
+
+### [INCIDENTE_AMBIENTE] pytest concorrente -> deadlock em conftest tk.Tk()
+- `conftest.py:107-117` chama `tk.Tk()` real na coleta + importa `ui/services/...`.
+  Rodar 2+ `pytest` concorrentes neste ambiente headless deadlockou 2 processos python
+  em estado ININTERRUPTIVEL (~0% CPU, >20 min); `taskkill /F` e `Stop-Process` falharam
+  (timeout/sem efeito). Causa = contencao de recurso GUI do Windows, NAO regressao de
+  codigo (run unico do Passo 0 = 3.46s; run final = 2.90s).
+- Mitigacao aplicada: rodar pytest em invocacao UNICA (sem concorrencia). Recomendacao
+  futura (nao-bloqueante): tornar `_tk_available()` resiliente a concorrencia / pular Tk
+  em ambiente headless.
+
+### Nao executado (preservado para fases futuras)
+- NAO tocado `testedb.csv` (T-034, PRIV-001), `config.json`, `config_old.json`.
+- NAO movido `analise/`, `extracao/`, `scratch/`, `sql/`, `db/` (Fase 7).
+- NAO alterado `CLAUDE.md`/`AGENTS.md` (preserva hash do guardiao T-012).
+
+### Proxima rodada
+- Fase 4 (Import-ban de pastas orfas + refactor de paths hardcoded em scripts) —
+  T-040..T-045. Aguardando autorizacao do usuario.
+
+## 2026-06-02 — Fase 6 (Audit Refactoring) — parcial (6.A + 6.B verdes; 6.C BLOQUEADA)
+
+### Concluido
+- Baseline commit (1b0d3ef): 30 arquivos rastreados modificados (trabalho concluido
+  2026-05-30 nunca commitado) registrado antes da Fase 6, por decisao do usuario
+  ("baseline commit primeiro"), para manter commits de tarefa limpos.
+- 6.A T-060 (19456cf): assert_valid_gal_payload (wrapper fail-closed) em gal_payload_contract.
+- 6.A T-061 (11c8a1f): enviar_amostra usa assert_valid_gal_payload antes do POST.
+- 6.B T-062 (0712823): safe_operation ganha propagate_critical (keyword-only, default False).
+- 6.B T-063 (b28ef22): teste 3 cenarios safe_operation propagate_critical.
+- 6.B T-064 (e89460a): config.settings salvar/_criar_backup propagam falha critica
+  (antes retornavam True falso via fallback_value=True) + guard test.
+
+### [CRITICAL_FINDING] services/reports/ inteiro fora do controle de versao
+- `.gitignore:1020` tem regra over-broad `reports/` (destinada a diretorios de SAIDA),
+  que captura tambem o PACOTE DE CODIGO `services/reports/`.
+- Pacote afetado (8 modulos, TODOS untracked/ignored, sem historico git):
+  __init__.py, dashboard_analytics.py, history_report.py, plate_report.py,
+  relatorio_csv.py, relatorio_estatistico.py, reports_exporter.py, reports_repository.py.
+- Importado por >=12 modulos (application/, services/core, ui/*, exportacao/envio_gal,
+  utils/gui_utils). E codigo de producao vivo, nao artefato.
+- IMPACTO: risco de perda de codigo (nao versionado); o alvo de migracao do 6.C
+  (history_report.py) vive neste pacote ignorado — colocar a fonte canonica ali
+  significa que ela nunca seria versionada.
+- 6.C SUSPENSA aguardando decisao humana sobre: (a) corrigir .gitignore (ancorar
+  `reports/` -> `/reports/`) e versionar o pacote; (b) escolher outro modulo (rastreado)
+  como destino canonico; (c) force-add pontual. NENHUMA acao tomada sem autorizacao.
+- Nada foi forcado para dentro do git; .gitignore NAO alterado.
+
+## 2026-06-02 — Fase 6: 6.C concluida + 6.D plano corrigido (checkpoint)
+
+### 6.C concluida (commits)
+- fix(gitignore) + baseline services/reports (62b2a48): ancorou 'reports/' -> '/reports/'
+  (2 ocorrencias) e versionou o pacote de codigo services/reports/ (8 modulos antes ignorados).
+- feat(T-065) af7d6d9: salvar_historico_processamento em services.reports.history_report (CSV-only).
+- refactor(T-066) dc3c7ed: 2 callers reais migrados (utils/gui_utils, ui/janela_analise_completa).
+  Lista de "4 callers" do plano estava desatualizada: dashboard.py importa obter_historico_analises
+  e consolidate_history.py importa get_postgres_connection (funcoes diferentes, fora do escopo).
+- test(T-067) 16d9042: guardiao tests/test_utils_no_db_imports.py (1 passed).
+
+### Verificacao kant (6.A+B+C): "Sem regressoes bloqueantes". Ressalvas nao-bloqueantes:
+- R1 (medio): T-064 propaga falha critica; config.settings set(salvar_agora=True)/reset()
+  chamam self.salvar() sem try. Caller UI _aplicar_configuracoes JA esta envolto em
+  @safe_operation(fallback_value=False), entao a excecao e capturada/logada/exibida 1 nivel acima.
+  Recomendacao (futuro, fora de escopo): auditar demais callers de set/reset antes de producao.
+- R2 (baixo): T-065 mantem except->log CRITICAL e engole (fail-open), fiel ao original db_utils;
+  difere da politica fail-closed de T-064 (intencional — historico nao deve abortar analise).
+
+### Achado secundario (nao tocado)
+- root ./relatorios/ tambem e pacote de codigo (__init__.py, gerar_relatorios.py) misturado com
+  saidas (PDF/xlsx), ignorado por regra 'relatorios/'. NAO corrigido (fora do escopo 6.C; root,
+  exigiria separar codigo de saida). Registrar como GIG-002 futuro.
+
+### 6.D — plano CORRIGIDO (estrutura real != plano)
+cadastros_ui.py (4326 L) NAO tem 4 classes editor standalone. Tem 3 classes:
+- CadastrosDiversosWindow (86-2013): infra compartilhada (86-267) + 4 grupos de metodos-aba
+  (exames 268-621, equipamentos 622-1305, placas 1306-1649, regras 1650-2013), todos usando self.
+- ExamFormDialog (2014-3384, ~1370 L) e RegistryExamEditor (3385-4326, ~941 L): dialogos de exame.
+Estrategia de split recomendada = MIXINS (nao extracao de classe):
+- cadastros_exames.py: ExamesTabMixin + ExamFormDialog + RegistryExamEditor
+- cadastros_equipamentos.py: EquipamentosTabMixin
+- cadastros_placas.py: PlacasTabMixin
+- cadastros_regras.py: RegrasTabMixin
+- cadastros_ui.py (facade ~250 L): imports + CadastrosDiversosWindow(ExamesTabMixin, ...) com infra.
+T-068 (smoke Tk) viavel: Tk disponivel (conftest:109-110 cria root real); rodar pytest
+em invocacao UNICA (T-AUD-021). 6.D pendente de retomada (recomendado /clear / sessao nova).
+
+## 2026-06-03 — SDD-20260603-001: escopo por exames habilitados
+
+- Rodada documental autorizada para substituir limite fixo VR1e2/ZDC por escopo operacional baseado em `active_exams`.
+- Atualizados `.specify/memory/constitution.md`, `docs/specs/requirements.md`, `docs/specs/design.md`, `docs/specs/tasks.md`, `AGENTS.md` e `CLAUDE.md`.
+- Regra vigente: todo exame em `active_exams` pode operar com configuracao/contrato valido; exame ausente falha fail-closed; `active_exams` vazio bloqueia todos.
+- VR1e2/ZDC preservados como exames canonicos de referencia com regras CT explicitas, nao como limite fixo do catalogo.
+- Validacoes: paridade AGENTS/CLAUDE `True`; `tests/test_agents_claude_md_sha_match.py` 1 passed; `main.py --help` passou.
+- Nenhum codigo, CSV, DB ou arquivo sensivel aberto/alterado.

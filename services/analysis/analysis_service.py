@@ -88,7 +88,7 @@ from utils.io_utils import read_data_with_auto_detection
 from utils.text_normalizer import _normalize_col_key
 
 from utils.logger import registrar_log
-from domain.resultado_geral import RESULTADO_INVALIDO, RESULTADO_INDETERMINADO, RESULTADO_NAO_DETECTAVEL
+from domain.resultado_geral import RESULTADO_INVALIDO, RESULTADO_INDETERMINADO, RESULTADO_NAO_DETECTAVEL, is_amostra_vazia
 
 
 
@@ -243,6 +243,13 @@ def _apply_resultado_geral_vectorized(
     else:
         alvos_df = pd.DataFrame(index=df_processado.index)
 
+    # Poco vazio (codigo em branco, "X" ou rotulo "Vazio...") e sempre Invalido,
+    # para qualquer exame. Regra de dominio: domain.resultado_geral.is_amostra_vazia.
+    amostra_series = df_processado.get(
+        "Amostra", pd.Series("", index=df_processado.index)
+    )
+    amostra_vazia_mask = amostra_series.map(is_amostra_vazia)
+
     resultado_geral = pd.Series(RESULTADO_NAO_DETECTAVEL, index=df_processado.index, dtype="object")
     resultado_geral.loc[~rp_valid_mask] = RESULTADO_INVALIDO
 
@@ -288,6 +295,13 @@ def _apply_resultado_geral_vectorized(
             df_processado.insert(0, "Selecionado", True)
         df_processado.loc[~rp_valid_mask, "Selecionado"] = False
         df_processado.loc[rp_valid_mask, "Selecionado"] = True
+
+    # Forca Invalido para pocos vazios, sobrepondo qualquer classificacao acima,
+    # e remove-os da selecao de envio.
+    if amostra_vazia_mask.any():
+        resultado_geral.loc[amostra_vazia_mask] = RESULTADO_INVALIDO
+        if "Selecionado" in df_processado.columns:
+            df_processado.loc[amostra_vazia_mask, "Selecionado"] = False
 
     df_processado["Resultado_geral"] = resultado_geral
     return df_processado
@@ -1185,6 +1199,16 @@ class AnalysisService:
                 if 'Poco' in gabarito.columns or 'PoÃ§o' in gabarito.columns:
                     col_poco_gab = 'Poco' if 'Poco' in gabarito.columns else 'PoÃ§o'
                     
+                    # Renomear amostras vazias ('X' ou vazias) para manter rastreabilidade
+                    # e garantir que não se fundam no pivot table (evitando perda de contagem).
+                    if 'Amostra' in gabarito.columns:
+                        # Normalize string to handle spaces and 'nan'
+                        gabarito['Amostra_str'] = gabarito['Amostra'].astype(str).str.strip().str.upper()
+                        mask_empty = gabarito['Amostra'].isna() | (gabarito['Amostra_str'] == 'X') | (gabarito['Amostra_str'] == '') | (gabarito['Amostra_str'] == 'NAN') | (gabarito['Amostra_str'] == 'NONE')
+                        if mask_empty.any():
+                            gabarito.loc[mask_empty, 'Amostra'] = 'Vazio_' + gabarito.loc[mask_empty, col_poco_gab].astype(str)
+                            registrar_log("AnalysisService", f"Renomeados {mask_empty.sum()} poços vazios ('X') para validação de placa cheia.", "INFO")
+
                     # Se o gabarito veio da UI com Poco_Analise já mapeado, usamos ele
                     if 'Poco_Analise' in gabarito.columns:
                         # Explode a tupla/lista de Poco_Analise para múltiplas linhas
@@ -1209,8 +1233,10 @@ class AnalysisService:
                         gabarito[['Well_Gab', 'Amostra', 'Codigo']],
                         left_on='Well',
                         right_on='Well_Gab',
-                        how='left'
+                        how='outer'
                     )
+                    # Preencher Well com Well_Gab caso seja um poço que estava no gabarito mas não no arquivo de resultados
+                    df_norm['Well'] = df_norm['Well'].fillna(df_norm['Well_Gab'])
                     df_norm['Sample'] = df_norm['Amostra'].fillna(df_norm['Sample_Raw'])
 
                     indicator_col = None
@@ -1246,8 +1272,9 @@ class AnalysisService:
                                  f"DEBUG: Primeiras amostras únicas: {df_norm['Sample'].unique()[:5].tolist()}",
                                  "DEBUG")
                     
-                    # FILTRAR poços vazios (marcados como 'X' no gabarito)
-                    sample_mask = df_norm['Sample'].notna() & (df_norm['Sample'] != 'X')
+                    # NÃO FILTRAR poços vazios (marcados como 'X' no gabarito)
+                    # A regra estabelecida exige que eles entrem na conta como 'Inválido'
+                    sample_mask = df_norm['Sample'].notna()
                     df_norm = df_norm.loc[sample_mask].copy()
                     
                     registrar_log("AnalysisService",
