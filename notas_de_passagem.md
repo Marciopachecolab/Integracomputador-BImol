@@ -1643,3 +1643,12 @@ Estrategia de split recomendada = MIXINS (nao extracao de classe):
 - cadastros_ui.py (facade ~250 L): imports + CadastrosDiversosWindow(ExamesTabMixin, ...) com infra.
 T-068 (smoke Tk) viavel: Tk disponivel (conftest:109-110 cria root real); rodar pytest
 em invocacao UNICA (T-AUD-021). 6.D pendente de retomada (recomendado /clear / sessao nova).
+
+## 2026-06-03 — SDD-20260603-001: escopo por exames habilitados
+
+- Rodada documental autorizada para substituir limite fixo VR1e2/ZDC por escopo operacional baseado em `active_exams`.
+- Atualizados `.specify/memory/constitution.md`, `docs/specs/requirements.md`, `docs/specs/design.md`, `docs/specs/tasks.md`, `AGENTS.md` e `CLAUDE.md`.
+- Regra vigente: todo exame em `active_exams` pode operar com configuracao/contrato valido; exame ausente falha fail-closed; `active_exams` vazio bloqueia todos.
+- VR1e2/ZDC preservados como exames canonicos de referencia com regras CT explicitas, nao como limite fixo do catalogo.
+- Validacoes: paridade AGENTS/CLAUDE `True`; `tests/test_agents_claude_md_sha_match.py` 1 passed; `main.py --help` passou.
+- Nenhum codigo, CSV, DB ou arquivo sensivel aberto/alterado.

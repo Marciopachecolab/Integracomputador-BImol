@@ -15,7 +15,7 @@ Estes princípios regem a contribuição de agentes autônomos (Claude Code, Spe
 - MUST NOT ler, imprimir no terminal ou expor credenciais dos *seeds* do sistema (`credenciais.csv`, `usuarios.csv`).
 
 ### 3. Falha em Tempo de Execução e Escopo (MUST)
-- MUST operar num esquema `fail-closed` para exames fora do escopo. Os ativos atuais obrigatórios são `VR1e2 Biomanguinhos 7500` e `ZDC BioManguinhos`.
+- MUST operar num esquema `fail-closed` para exames fora do escopo configurado. Em runtime real, o escopo operacional é a lista `active_exams`: todo exame habilitado nessa lista pode operar quando possuir configuração/contrato válido; exame ausente de `active_exams` deve ser bloqueado.
 - MUST verificar e respeitar as condições de `shared_storage` e configurações da *Instalação Inicial* antes de invocar rotinas na base de dados em ambiente produtivo.
 - MUST normalizar chaves de idempotência (ex: *dual-key GAL*) como lowercase/strip, nunca embutindo timestamps nas chaves para fugir à idempotência.
 

@@ -101,7 +101,7 @@ Regra de preservacao ao reeditar: `_build_registry_exam_config` usa `_pick/_pick
 
 ### 3.6 Escopo de exames
 Guard de runtime opera em dois modos claramente distintos:
-- **Registry carregado em runtime real**: `services.exam_registry.is_active(nome)` consulta a lista `active_exams` configurada. Se a lista existir e o exame nao constar, `_analisar_corrida_pipeline()` levanta `domain.exam_scope.ExamForaDoEscopoError` antes de qualquer IO de analise (fail-closed). `active_exams` vazio em registry carregado bloqueia todos os exames.
+- **Registry carregado em runtime real**: `services.exam_registry.is_active(nome)` consulta a lista `active_exams` configurada, que representa os exames habilitados operacionalmente. Se a lista existir e o exame nao constar, `_analisar_corrida_pipeline()` levanta `domain.exam_scope.ExamForaDoEscopoError` antes de qualquer IO de analise (fail-closed). `active_exams` vazio em registry carregado bloqueia todos os exames. Exames adicionados pelo wizard/registry podem operar quando constarem em `active_exams` e tiverem configuracao/contrato valido.
 - **Stubs de teste sem configuracao**: por contrato canonico, `is_active()` pode retornar `True` incondicionalmente para preservar suites que nao configuram `active_exams`. Esse comportamento e exclusivo do contexto de teste e nao afeta o fail-closed do registry real.
 
 Componentes:
@@ -256,7 +256,7 @@ Contrato de entrada minimo:
 {
   "data_inicio": "YYYY-MM-DD",
   "data_fim": "YYYY-MM-DD",
-  "exames": ["VR1e2 Biomanguinhos 7500", "ZDC BioManguinhos"],
+  "exames": ["<exame habilitado>", "..."],
   "status_realizacao": ["realizado", "a_realizar"],
   "positividade": ["positivo", "negativo", "inconclusivo", "invalido"],
   "analistas": ["usuario"],
@@ -326,7 +326,7 @@ Filtros de exame devem respeitar `ExamRegistry.active_exams`. Exame fora de esco
 7. Usuario exporta CSV/XLSX com metadados dos filtros aplicados quando necessario.
 
 ## 6. Restricoes
-- Somente dois exames ativos em producao.
+- Somente exames habilitados em `active_exams` podem operar em producao; exames ausentes continuam fail-closed.
 - Postgres dedicado nao deve ser usado (provider nao implementado).
 - Mudanca critica sem teste de regressao e proibida.
 - Quebra de schema CSV exige migracao explicita.

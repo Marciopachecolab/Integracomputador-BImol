@@ -3,7 +3,7 @@
 Status permitido: `[Pendente]`, `[Em Andamento]`, `[Concluido]`
 
 ## 1. Core sequencial
-- [x] [Concluido] T01 - Validar catalogo ativo (somente VR1e2 e ZDC) em menu e runtime.
+- [x] [Concluido] T01 - Validar catalogo ativo em menu e runtime conforme `active_exams`.
 - [x] [Concluido] T02 - Executar regressao de CT por borda para os dois exames.
 - [x] [Concluido] T03 - Garantir regra unica de `Resultado_geral` (invalido > indeterminado > detectavel > nao detectavel).
 - [x] [Concluido] T04 - Garantir que inconclusivo/indeterminado mantenha tag/cor correta na tabela.
@@ -541,3 +541,6 @@ Execucao SDD restrita e rastreavel das tarefas T-AUD nao bloqueadas:
 
 ## 12. Feature: Modulo Gestao Dashboard
 - [x] [Concluido] GD-01 - Implementation of the new Gestão Dashboard with Clinical Statistics (creates services/reports/dashboard_analytics.py using pandas and modifies ui/modules/dashboard.py without adding pandas to domain/).
+
+## 13. Escopo dinamico de exames habilitados
+- [x] [Concluido] SDD-20260603-001 - Atualizar SDD e documentacao operacional para permitir todos os exames habilitados em `active_exams`, mantendo fail-closed para exames ausentes da lista e preservando VR1e2/ZDC como exames canonicos de referencia, nao como limite fixo do catalogo.

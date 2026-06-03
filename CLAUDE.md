@@ -18,10 +18,11 @@ Ler estes documentos antes de agir e consulta-los como fonte primaria para qualq
 
 ## 2. Escopo ativo
 
-- Exames ativos obrigatorios:
-  - `VR1e2 Biomanguinhos 7500`
-  - `ZDC BioManguinhos`
-- Qualquer outro exame esta fora de escopo operacional e deve falhar fail-closed em runtime real.
+- Em runtime real, o escopo operacional e definido por `active_exams`.
+- Todo exame listado em `active_exams` pode operar quando possuir configuracao/contrato valido no registry.
+- Exame ausente de `active_exams` esta fora de escopo operacional e deve falhar fail-closed antes de qualquer IO de analise.
+- `active_exams` vazio em registry carregado bloqueia todos os exames.
+- `VR1e2 Biomanguinhos 7500` e `ZDC BioManguinhos` permanecem exames canonicos de referencia com regras CT explicitadas, mas nao limitam o catalogo quando outros exames estiverem habilitados.
 
 ## 3. Stack
 
@@ -70,7 +71,7 @@ Nao inventar nomes alternativos se o codigo usa outro termo canonico.
 - `services/` contem adapters, persistencia, integracoes e legado; alteracoes devem ser localizadas e rastreaveis.
 - `ui/` e `interface/` nao podem duplicar regra clinica nem prioridade de `Resultado_geral`.
 - `config/contracts/equipment/*.json` sao contratos canonicos de equipamentos. Fontes legadas em `banco/*` sao apenas fallback sob deprecacao controlada.
-- `active_exams` deve ser respeitado em runtime real; stubs de teste podem retornar `True` por contrato canonico sem contaminar o registry real.
+- `active_exams` deve ser respeitado em runtime real como lista canonica de exames habilitados; stubs de teste podem retornar `True` por contrato canonico sem contaminar o registry real.
 - Idempotencia GAL preservada como dual-key (legada 4 campos + escopo 4+N), verificada antes de cada envio.
 
 ## 7. Regras de operacao
@@ -116,7 +117,7 @@ Nao inventar nomes alternativos se o codigo usa outro termo canonico.
 - Mapeamento com preview e contrato de retorno.
 - Sincronizacao mapa -> tabela sem perder edicao manual.
 - Idempotencia GAL por chave composta (dual-key: legada 4 campos + escopo 4+N).
-- Fail-closed de escopo: exame fora de `active_exams` levanta `ExamForaDoEscopoError` antes de qualquer IO de analise.
+- Fail-closed de escopo: exame ausente de `active_exams` levanta `ExamForaDoEscopoError` antes de qualquer IO de analise.
 
 Testes guardioes e pendencias registradas (T-AUD em `tasks.md`):
 
