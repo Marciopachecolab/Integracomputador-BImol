@@ -1369,8 +1369,34 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
             self.df_analise["Resultado_geral"] = ""
         self._recalcular_resultados_por_ct()
         self._recalcular_resultado_geral()
+        self._recalcular_status_placa()
         self._popular_tabela()
         registrar_log("Sync", "Re-analise completa pos-mapa concluida", "INFO")
+
+    def _recalcular_status_placa(self) -> None:
+        """Recalcula Status_Placa apos edicao de CT no Mapa da Placa.
+
+        Usa a regra canonica do pipeline (`_avaliar_status_placa_vectorized`) sobre
+        as colunas Res_* ja atualizadas por `_recalcular_resultados_por_ct`, mantendo
+        Status_Placa como fonte unica de verdade (consumida pelo Mapa Definitivo).
+        """
+        try:
+            from services.analysis.analysis_service import _avaliar_status_placa_vectorized
+
+            alvos_cols_res = [
+                c for c in self.df_analise.columns
+                if c.startswith("Res_") and "RP" not in c
+            ]
+            self.df_analise["Status_Placa"] = _avaliar_status_placa_vectorized(
+                self.df_analise, alvos_cols_res
+            )
+            registrar_log(
+                "Recalc",
+                f"Status_Placa recalculado: {self.df_analise['Status_Placa'].iloc[0] if len(self.df_analise) else 'n/d'}",
+                "INFO",
+            )
+        except Exception as exc:  # noqa: BLE001
+            registrar_log("Recalc", f"Falha ao recalcular Status_Placa (continuando): {exc}", "WARNING")
 
     def _calcular_geral_fallback(self, row, result_cols):
         """
@@ -1750,6 +1776,7 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
                 df_selecionadas,
                 exam_cfg=None,
                 exame=self.exame,
+                lote_kit=str(self.lote or ""),
             )
             df_gal = export_result.dataframe
             gal_path = export_result.gal_path
@@ -1855,7 +1882,13 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
             os.makedirs(diretorio_saida, exist_ok=True)
 
             app_state = getattr(self.main_window, "app_state", None)
-            nome_op = getattr(app_state, "quem_analisou_placa", "") or getattr(app_state, "quem_preparou_placa", "") or "Usuário Desconhecido"
+            # Operador = usuario logado; campos opcionais sao apenas fallback.
+            nome_op = (
+                str(getattr(self, "usuario_logado", "") or "").strip()
+                or getattr(app_state, "quem_analisou_placa", "")
+                or getattr(app_state, "quem_preparou_placa", "")
+                or "Usuário Desconhecido"
+            )
 
             caminho = gerar_mapa_placa_xlsx(
                 df_analise=self.df_analise,

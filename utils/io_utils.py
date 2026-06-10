@@ -115,6 +115,48 @@ def detectar_separador_csv(filepath: str) -> str:
         return ","
 
 
+def _resolver_sheet_resultados(filepath: str):
+    """Resolve a aba a usar na leitura generica de resultados.
+
+    Equipamentos diferem no nome da aba de dados: o QuantStudio usa "Results",
+    mas o export do 7500 (e outros) usa outro nome. Estrategia:
+      1. se existir aba cujo nome normalizado == "results", usa ela (QuantStudio);
+      2. senao, usa a primeira aba que NAO seja de extracao (nome com "extra");
+      3. fallback: primeira aba do arquivo.
+    Em caso de falha ao listar abas, retorna "Results" (comportamento legado).
+    """
+    try:
+        with pd.ExcelFile(filepath) as xls:
+            sheets = list(xls.sheet_names)
+    except Exception as exc:
+        registrar_log(
+            "IO Utils",
+            f"Nao foi possivel listar abas de '{os.path.basename(filepath)}': {exc}. "
+            "Usando 'Results'.",
+            level="WARNING",
+        )
+        return "Results"
+
+    if not sheets:
+        return 0
+
+    for nome in sheets:
+        if str(nome).strip().casefold() == "results":
+            return nome
+
+    def _eh_extracao(nome: object) -> bool:
+        return "extra" in str(nome).strip().casefold()
+
+    candidatos = [s for s in sheets if not _eh_extracao(s)]
+    escolhida = (candidatos or sheets)[0]
+    registrar_log(
+        "IO Utils",
+        f"Aba 'Results' ausente em '{os.path.basename(filepath)}'; usando aba '{escolhida}'.",
+        level="DEBUG",
+    )
+    return escolhida
+
+
 def detectar_linha_cabecalho(filepath: str, sep: str = ",") -> int:
     """
     Detect header line for CSV/Excel by common keywords.
@@ -160,13 +202,14 @@ def detectar_linha_cabecalho(filepath: str, sep: str = ",") -> int:
             return 0
 
         if filepath.lower().endswith((".xls", ".xlsx")):
+            sheet_alvo = _resolver_sheet_resultados(filepath)
             for skip_rows in range(50):
                 try:
                     temp_df = call_with_retry(
-                        lambda: pd.read_excel(
+                        lambda _sheet=sheet_alvo, _skip=skip_rows: pd.read_excel(
                             filepath,
-                            sheet_name="Results",
-                            skiprows=skip_rows,
+                            sheet_name=_sheet,
+                            skiprows=_skip,
                             engine="openpyxl",
                         ),
                         op_name="read_excel",
@@ -241,9 +284,10 @@ def read_data_with_auto_detection(filepath: str) -> Optional[pd.DataFrame]:
         )
         try:
             skip_rows = detectar_linha_cabecalho(filepath)
+            sheet_alvo = _resolver_sheet_resultados(filepath)
             df = call_with_retry(
                 lambda: pd.read_excel(
-                    filepath, sheet_name="Results", skiprows=skip_rows, engine="openpyxl"
+                    filepath, sheet_name=sheet_alvo, skiprows=skip_rows, engine="openpyxl"
                 ),
                 op_name="read_excel",
                 path=filepath,

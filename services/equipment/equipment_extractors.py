@@ -12,6 +12,8 @@ from typing import Optional, Dict, Any, List
 import re
 from dataclasses import dataclass
 
+from utils.text_normalizer import _normalize_col_key
+
 
 @dataclass
 class EquipmentConfig:
@@ -71,6 +73,30 @@ def _processar_ct(valor: Any) -> Optional[float]:
             return None
     
     return None
+
+
+def _localizar_indice_amp_status(colunas: List[Any]) -> Optional[int]:
+    """Localiza, por nome de cabecalho, a coluna "Amp Status" (generico).
+
+    Tolera variacoes de caixa/espaco/underscore (`Amp Status`, `amp_status`,
+    `AmpStatus`). Retorna o indice posicional ou ``None`` quando ausente — exames
+    sem a coluna mantem o comportamento anterior.
+    """
+    for idx, col in enumerate(colunas):
+        if _normalize_col_key(col) == "ampstatus":
+            return idx
+    return None
+
+
+def _ler_amp_status(row: Any, col_amp: Optional[int]) -> Optional[str]:
+    """Le o valor textual da coluna Amp Status para uma linha, ou ``None``."""
+    if col_amp is None or col_amp >= len(row):
+        return None
+    valor = row.iloc[col_amp]
+    if pd.isna(valor):
+        return None
+    texto = str(valor).strip()
+    return texto or None
 
 
 def _validar_formato_well(well: str, formato_esperado: str = 'A01') -> bool:
@@ -197,43 +223,49 @@ def extrair_7500(caminho: str, config: EquipmentConfig) -> pd.DataFrame:
     if col_ct >= len(colunas):
         raise ExtratorError(f"Coluna CT (índice {col_ct}) não existe no arquivo")
     
+    # Localizar coluna Amp Status por cabecalho (opcional, generico)
+    col_amp = _localizar_indice_amp_status(list(df.columns))
+
     # Extrair dados
     dados_normalizados = []
-    
+
     for idx, row in df.iterrows():
         well = str(row.iloc[col_well]).strip() if col_well < len(row) else ""
         sample = str(row.iloc[col_sample]).strip() if col_sample is not None and col_sample < len(row) else ""
         target = str(row.iloc[col_target]).strip() if col_target is not None and col_target < len(row) else ""
         ct_raw = row.iloc[col_ct] if col_ct < len(row) else None
-        
+
         # Validar well
         if not well or well.upper() in ('NAN', 'NONE', ''):
             continue
-        
+
         # Validar formato do well (A1-H12)
         if not _validar_formato_well(well, formato_esperado='A1'):
             continue
-        
+
         # Normalizar well para A01
         well_norm = _normalizar_well(well)
-        
+
         # Processar CT
         ct_valor = _processar_ct(ct_raw)
-        
+
         # Target não pode ser vazio
         if not target or target.upper() in ('NAN', 'NONE', ''):
             continue
-        
-        dados_normalizados.append({
+
+        registro = {
             'bem': well_norm,
             'amostra': sample,
             'alvo': target,
             'ct': ct_valor
-        })
-    
+        }
+        if col_amp is not None:
+            registro['amp_status'] = _ler_amp_status(row, col_amp)
+        dados_normalizados.append(registro)
+
     if not dados_normalizados:
         raise ExtratorError("Nenhum dado válido encontrado após extração")
-    
+
     return pd.DataFrame(dados_normalizados)
 
 
@@ -310,36 +342,42 @@ def extrair_cfx96(caminho: str, config: EquipmentConfig) -> pd.DataFrame:
             "complete manualmente os dados de Target no arquivo."
         )
     
+    # Localizar coluna Amp Status por cabecalho (opcional, generico)
+    col_amp = _localizar_indice_amp_status(list(df.columns))
+
     # Extrair dados
     dados_normalizados = []
-    
+
     for idx, row in df.iterrows():
         well = str(row.iloc[col_well]).strip() if col_well < len(row) else ""
         sample = str(row.iloc[col_sample]).strip() if col_sample is not None and col_sample < len(row) else ""
         target = str(row.iloc[col_target]).strip() if col_target < len(row) else ""
         ct_raw = row.iloc[col_ct] if col_ct < len(row) else None
-        
+
         # Validar well
         if not well or well.upper() in ('NAN', 'NONE', ''):
             continue
-        
+
         # Validar formato do well (A01-H12)
         if not _validar_formato_well(well, formato_esperado='A01'):
             continue
-        
+
         # Processar CT
         ct_valor = _processar_ct(ct_raw)
-        
+
         # Target não pode ser vazio
         if not target or target.upper() in ('NAN', 'NONE', ''):
             continue
-        
-        dados_normalizados.append({
+
+        registro = {
             'bem': well,  # CFX96 já usa formato A01
             'amostra': sample,
             'alvo': target,
             'ct': ct_valor
-        })
+        }
+        if col_amp is not None:
+            registro['amp_status'] = _ler_amp_status(row, col_amp)
+        dados_normalizados.append(registro)
     
     if not dados_normalizados:
         raise ExtratorError(
@@ -478,47 +516,53 @@ def extrair_quantstudio(caminho: str, config: EquipmentConfig) -> pd.DataFrame:
     
     # QuantStudio: usar Well Position (coluna 1) ao invés de Well (coluna 0)
     col_well = 1  # Well Position tem formato A1
-    
+
     # Ler arquivo
     df = _ler_xlsx_generico(caminho, linha_inicio)
-    
+
     if df.empty:
         raise ExtratorError("Arquivo vazio ou sem dados")
-    
+
+    # Localizar coluna Amp Status por cabecalho (opcional, generico)
+    col_amp = _localizar_indice_amp_status(list(df.columns))
+
     # Extrair dados
     dados_normalizados = []
-    
+
     for idx, row in df.iterrows():
         # Usar Well Position (coluna 1) ao invés de Well (coluna 0)
         well = str(row.iloc[col_well]).strip() if col_well < len(row) else ""
         sample = str(row.iloc[col_sample]).strip() if col_sample is not None and col_sample < len(row) else ""
         target = str(row.iloc[col_target]).strip() if col_target is not None and col_target < len(row) else ""
         ct_raw = row.iloc[col_ct] if col_ct < len(row) else None
-        
+
         # Validar well
         if not well or well.upper() in ('NAN', 'NONE', ''):
             continue
-        
+
         # Validar formato do well (A1-H12 sem zero)
         if not _validar_formato_well(well, formato_esperado='A1'):
             continue
-        
+
         # Normalizar well para A01
         well_norm = _normalizar_well(well)
-        
+
         # Processar CT
         ct_valor = _processar_ct(ct_raw)
-        
+
         # Target não pode ser vazio
         if not target or target.upper() in ('NAN', 'NONE', ''):
             continue
-        
-        dados_normalizados.append({
+
+        registro = {
             'bem': well_norm,
             'amostra': sample,
             'alvo': target,
             'ct': ct_valor
-        })
+        }
+        if col_amp is not None:
+            registro['amp_status'] = _ler_amp_status(row, col_amp)
+        dados_normalizados.append(registro)
     
     if not dados_normalizados:
         raise ExtratorError("Nenhum dado válido encontrado após extração")

@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 
 # Imports de refatorações anteriores
-from utils.text_normalizer import normalize_cyrillic, find_column_by_keywords
+from utils.text_normalizer import normalize_cyrillic, find_column_by_keywords, _normalize_col_key
 from utils.well_sorter import get_rp_type
 from utils.dataframe_validator import (
     validate_merge_quality,
@@ -84,7 +84,14 @@ def identificar_colunas_pcr(df: pd.DataFrame) -> Dict[str, str]:
     
     # CRÍTICO: Identificar CT com regras especiais
     col_ct = _identificar_coluna_ct(cols_raw)
-    
+
+    # Coluna "Amp Status" (opcional, generica por nome de cabecalho). Ausencia
+    # mantem o comportamento anterior — nao entra na validacao de obrigatorias.
+    col_amp_status = next(
+        (c for c in cols_raw if _normalize_col_key(c) == "ampstatus"),
+        None,
+    )
+
     # Validar colunas essenciais
     if not (col_well and col_target and col_ct):
         missing = []
@@ -108,7 +115,8 @@ def identificar_colunas_pcr(df: pd.DataFrame) -> Dict[str, str]:
         'well': col_well,
         'sample': col_sample,
         'target': col_target,
-        'ct': col_ct
+        'ct': col_ct,
+        'amp_status': col_amp_status,
     }
 
 

@@ -88,7 +88,15 @@ from utils.io_utils import read_data_with_auto_detection
 from utils.text_normalizer import _normalize_col_key
 
 from utils.logger import registrar_log
-from domain.resultado_geral import RESULTADO_INVALIDO, RESULTADO_INDETERMINADO, RESULTADO_NAO_DETECTAVEL, is_amostra_vazia
+from domain.resultado_geral import (
+    RESULTADO_INVALIDO,
+    RESULTADO_INDETERMINADO,
+    RESULTADO_INDETERMINADO_AMPL,
+    RESULTADO_NAO_DETECTAVEL,
+    is_amostra_vazia,
+    is_amp_status_indeterminante,
+    reclassificar_alvo_por_amp_status,
+)
 
 
 
@@ -162,6 +170,22 @@ def _normalize_text(value: Any) -> str:
     if pd.isna(value):
         return ""
     return str(value).strip().casefold()
+
+
+def _is_indeterminado_label(value: Any) -> bool:
+    """Reconhece um rotulo Indeterminado, inclusive o derivado "Indeterminado (ampl)"."""
+    t = _normalize_text(value)
+    return (
+        t in _INDETERMINADO_LABELS
+        or t.startswith("indeterminado")
+        or t.startswith("inconclusivo")
+    )
+
+
+def _is_indeterminado_ampl_label(value: Any) -> bool:
+    """True somente para o rotulo derivado de Amp Status (`Indeterminado (ampl)`)."""
+    t = _normalize_text(value)
+    return _is_indeterminado_label(t) and "ampl" in t
 
 
 def _pick_existing_column(df: pd.DataFrame, candidates: Iterable[str]) -> Optional[str]:
@@ -255,11 +279,17 @@ def _apply_resultado_geral_vectorized(
 
     if not alvos_df.empty:
         alvos_norm = alvos_df.apply(lambda col: col.map(_normalize_text))
-        has_indeterminado = alvos_norm.isin(_INDETERMINADO_LABELS).any(axis=1)
+        indeterminado_matrix = alvos_norm.apply(lambda col: col.map(_is_indeterminado_label))
+        has_indeterminado = indeterminado_matrix.any(axis=1)
+        ampl_matrix = alvos_norm.apply(lambda col: col.map(_is_indeterminado_ampl_label))
+        has_ampl = ampl_matrix.any(axis=1)
         detect_matrix = alvos_norm.isin(_DETECTAVEL_LABELS)
         has_detectavel = detect_matrix.any(axis=1)
 
         resultado_geral.loc[rp_valid_mask & has_indeterminado] = RESULTADO_INDETERMINADO
+        # Quando a indeterminacao decorre da coluna Amp Status, preserva o rotulo
+        # derivado "Indeterminado (ampl)" no Resultado_geral (grade e mapas).
+        resultado_geral.loc[rp_valid_mask & has_ampl] = RESULTADO_INDETERMINADO_AMPL
 
         detect_idx = df_processado.index[rp_valid_mask & ~has_indeterminado & has_detectavel]
         if len(detect_idx) > 0:
@@ -779,6 +809,7 @@ class AnalysisService:
             "amostra": "Sample",
             "alvo": "Target",
             "ct": "Ct",
+            "ampstatus": "Amp Status",
         }
         for source_key, target_column in aliases.items():
             source_column = normalized_columns.get(source_key)
@@ -1094,6 +1125,7 @@ class AnalysisService:
             col_sample = col_map["sample"]
             col_target = col_map["target"]
             col_ct = col_map["ct"]
+            col_amp = col_map.get("amp_status")
 
             if not col_sample:
                 registrar_log(
@@ -1168,6 +1200,13 @@ class AnalysisService:
                     return None
             
             df_norm['Ct'] = df_norm['Ct_Raw'].apply(normalizar_ct)
+
+            # Coluna "Amp Status" (opcional). Ausencia => coluna vazia, sem efeito.
+            if col_amp and col_amp in df_resultados.columns:
+                df_norm['Amp_Status'] = df_resultados[col_amp].astype(str)
+            else:
+                df_norm['Amp_Status'] = ""
+
             raw_well_count = int(df_norm['Well'].nunique())
             
             registrar_log("AnalysisService", 
@@ -1302,8 +1341,11 @@ class AnalysisService:
             # ETAPA 4: Separar RP de outros alvos (subconjuntos enxutos para reduzir memoria)
             rp_mask = df_norm['Target'].str.contains('RP', na=False, case=False)
             base_cols = ['Sample', 'Well', 'Target', 'Ct']
+            alvos_cols = ['Sample', 'Target', 'Ct']
+            if 'Amp_Status' in df_norm.columns:
+                alvos_cols.append('Amp_Status')
             df_rp = df_norm.loc[rp_mask, base_cols].copy()
-            df_alvos = df_norm.loc[~rp_mask, ['Sample', 'Target', 'Ct']].copy()
+            df_alvos = df_norm.loc[~rp_mask, alvos_cols].copy()
             
             # RP separado pela posicao do poco dentro do grupo da amostra
             # (RP_1, RP_2, RP_3... conforme contrato).
@@ -1335,6 +1377,21 @@ class AnalysisService:
                 )
             else:
                 pivot_ct_alvos = pd.DataFrame()
+
+            # Pivot booleano de Amp Status por amostra x alvo: True se qualquer poço
+            # do grupo (A1+A2) indicar falha de amplificacao (No Amp / Inconclusive).
+            if not df_alvos.empty and 'Amp_Status' in df_alvos.columns:
+                amp_flags = df_alvos.assign(
+                    _amp_flag=df_alvos['Amp_Status'].map(is_amp_status_indeterminante)
+                )
+                pivot_amp = amp_flags.pivot_table(
+                    index='Sample',
+                    columns='Target',
+                    values='_amp_flag',
+                    aggfunc='max',
+                )
+            else:
+                pivot_amp = pd.DataFrame()
             
             # Pivotar RP separadamente (RP_1 e RP_2 como colunas distintas)
             if not df_rp.empty:
@@ -1449,7 +1506,21 @@ class AnalysisService:
                             )
                         else:
                             linha[col_res] = legacy_status
-                
+
+                        # Override Amp Status: alvo Detectavel/Indeterminado cujo
+                        # "Amp Status" seja No Amp/Inconclusive vira "Indeterminado (ampl)".
+                        # A regra de gate (so Detectavel/Indeterminado) fica no dominio.
+                        if (
+                            not pivot_amp.empty
+                            and sample in pivot_amp.index
+                            and target in pivot_amp.columns
+                        ):
+                            amp_flag = pivot_amp.loc[sample, target]
+                            if pd.notna(amp_flag) and bool(amp_flag):
+                                linha[col_res] = reclassificar_alvo_por_amp_status(
+                                    linha[col_res], "No Amp"
+                                )
+
                 # Adicionar CT e Resultado RP (pode ter RP_1, RP_2, etc.)
                 if not pivot_ct_rp.empty and sample in pivot_ct_rp.index:
                     rp_validos = []
@@ -1912,6 +1983,12 @@ class AnalysisService:
 
         df = read_data_with_auto_detection(caminho)
 
+        if df is None:
+            raise ValueError(
+                f"Não foi possível ler a planilha de resultados '{getattr(caminho, 'name', caminho)}'. "
+                "Verifique se o arquivo/aba tem o formato esperado (Well/Sample/Target/Ct)."
+            )
+
         registrar_log(
 
             "debug",
@@ -1922,7 +1999,7 @@ class AnalysisService:
 
         return df
 
-    
+
 
     def _carregar_arquivo_resultados_com_extrator(self, caminho: Path) -> pd.DataFrame:
 
@@ -2053,7 +2130,11 @@ class AnalysisService:
 
         df = read_data_with_auto_detection(caminho)
 
-        
+        if df is None:
+            raise ValueError(
+                f"Não foi possível ler a planilha de resultados '{getattr(caminho, 'name', caminho)}'. "
+                "Verifique se o arquivo/aba tem o formato esperado (Well/Sample/Target/Ct)."
+            )
 
         registrar_log(
 
@@ -2312,6 +2393,11 @@ class AnalysisService:
 
 
         df = read_data_with_auto_detection(caminho)
+
+        if df is None:
+            raise ValueError(
+                f"Não foi possível ler a planilha de extração/mapeamento '{getattr(caminho, 'name', caminho)}'."
+            )
 
         registrar_log(
 

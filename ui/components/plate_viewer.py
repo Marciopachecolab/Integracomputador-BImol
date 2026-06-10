@@ -48,8 +48,9 @@ STATUS_COLORS = {
     POSITIVE: SemanticColors.DETECTADO,
     INDETERMINADO: SemanticColors.INCONCLUSIVO,
     INVALID: SemanticColors.INVALIDO,
-    CONTROL_CN: SemanticColors.CONTROLE_CN,
-    CONTROL_CP: SemanticColors.CONTROLE_CP,
+    # Cores invertidas (CN=verde, CP=vermelho) quando o controle e valido.
+    CONTROL_CN: SemanticColors.CONTROLE_CP,  # verde
+    CONTROL_CP: SemanticColors.CONTROLE_CN,  # vermelho
     EMPTY: SemanticColors.EMPTY,
 }
 
@@ -1018,6 +1019,35 @@ def normalize_result(value: str) -> str:
     return raw
 
 
+def _controle_tem_alvo_detectavel(targets) -> bool:
+    """True se algum alvo analitico (nao-RP) do controle for Detectavel/Positivo."""
+    for target_name, target_result in (targets or {}).items():
+        tu = str(target_name).upper()
+        if tu.startswith("RP") or "RP_" in tu or "RP-" in tu:
+            continue
+        raw = repair_mojibake_text(str(getattr(target_result, "result", "") or "")).strip()
+        ru = unicodedata.normalize("NFKD", raw)
+        ru = "".join(ch for ch in ru if not unicodedata.combining(ch)).upper()
+        if "INDETERMIN" in ru or "INC" in ru:
+            continue
+        if "NAO" in ru or ru == "ND" or "NEGATIVO" in ru:
+            continue
+        if "DET" in ru or "POS" in ru:
+            return True
+    return False
+
+
+def controle_valido(targets, ctrl: str) -> bool:
+    """Validade canonica de controle (espelha mapa_placa_exporter._validar_controle):
+    CN valido = sem alvo detectavel (ND); CP valido = ao menos um alvo detectavel."""
+    tem_detectavel = _controle_tem_alvo_detectavel(targets)
+    if ctrl == "CN":
+        return not tem_detectavel
+    if ctrl == "CP":
+        return tem_detectavel
+    return True
+
+
 def resolve_well_color(well: WellData) -> str:
     """
     Resolve cor do poco baseado nos resultados normalizados.
@@ -1030,10 +1060,12 @@ def resolve_well_color(well: WellData) -> str:
     """
     if well.is_control:
         sample_upper = str(well.sample_id).upper()
-        if "CN" in sample_upper:
-            return STATUS_COLORS[CONTROL_CN]
-        if "CP" in sample_upper:
-            return STATUS_COLORS[CONTROL_CP]
+        ctrl = "CN" if "CN" in sample_upper else ("CP" if "CP" in sample_upper else None)
+        if ctrl is not None:
+            # Controle invalido recebe marcacao de erro; valido recebe a cor trocada.
+            if not controle_valido(well.targets, ctrl):
+                return STATUS_COLORS[INVALID]
+            return STATUS_COLORS[CONTROL_CN] if ctrl == "CN" else STATUS_COLORS[CONTROL_CP]
 
     if not well.targets:
         return STATUS_COLORS[EMPTY]

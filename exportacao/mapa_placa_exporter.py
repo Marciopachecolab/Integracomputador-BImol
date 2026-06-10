@@ -326,12 +326,19 @@ def construir_mapa_de_dataframe(
                 AlvoCelula(nome=rp.replace("_", " "), ct_formatado=ct_fmt)
             )
 
-        resultado_geral = _classificar_por_resultado_geral(_resultado_geral_da_linha(linha))
+        rg_texto = _resultado_geral_da_linha(linha)
+        resultado_geral = _classificar_por_resultado_geral(rg_texto)
         if resultado_geral is not None and ctrl is None:
             classificacao, detectaveis = resultado_geral
         else:
             rp_valido = _rp_valido_da_linha(linha, rps_descobertos)
             classificacao, detectaveis = classificar_amostra(resultados, rp_valido)
+
+        # Indeterminado derivado da coluna Amp Status: detecta o sufixo "(ampl)"
+        # tanto no Resultado_geral quanto nos resultados por alvo.
+        ampl = "ampl" in _normalizar_token_resultado(rg_texto) or any(
+            "ampl" in _normalizar_token_resultado(v) for v in resultados.values()
+        )
 
         alvos_distribuidos = distribuir_alvos_grid(alvos_celulas)
 
@@ -342,6 +349,7 @@ def construir_mapa_de_dataframe(
                 classificacao=classificacao,
                 detectaveis=detectaveis,
                 poco_label=poco_label,
+                ampl=ampl,
             )
         )
 
@@ -363,6 +371,74 @@ def _aplicar_borda(ws, r1: int, c1: int, r2: int, c2: int, border: Border = _BLO
     for r in range(r1, r2 + 1):
         for c in range(c1, c2 + 1):
             ws.cell(row=r, column=c).border = border
+
+
+def _aplicar_borda_externa(ws, r1: int, c1: int, r2: int, c2: int, side: Side = _THIN_BORDER) -> None:
+    """Aplica apenas o contorno externo (perimetro) de um retangulo, preservando
+    eventuais bordas internas ja existentes. Util para celulas mescladas."""
+    for r in range(r1, r2 + 1):
+        for c in range(c1, c2 + 1):
+            cell = ws.cell(row=r, column=c)
+            cur = cell.border
+            cell.border = Border(
+                left=side if c == c1 else cur.left,
+                right=side if c == c2 else cur.right,
+                top=side if r == r1 else cur.top,
+                bottom=side if r == r2 else cur.bottom,
+            )
+
+
+def _placa_valida_do_df(df_analise: pd.DataFrame) -> Optional[bool]:
+    """Le a validade canonica da placa a partir da coluna ``Status_Placa`` do
+    df_analise (calculada pelo pipeline, respeitando as faixas de RP/CI e alvos
+    definidas no exame). Retorna True/False, ou ``None`` quando indisponivel."""
+    if df_analise is None or getattr(df_analise, "empty", True):
+        return None
+    col = next(
+        (c for c in df_analise.columns if _normalizar_nome_coluna(c) == "statusplaca"),
+        None,
+    )
+    if col is None:
+        return None
+    valores = df_analise[col].dropna().astype(str)
+    valores = valores[valores.str.strip() != ""]
+    if valores.empty:
+        return None
+    token = _normalizar_token_resultado(valores.iloc[0])  # casefold + sem acentos
+    if token.startswith("invalida") or token.startswith("indefinid"):
+        return False
+    if token.startswith("valida"):
+        return True
+    return None
+
+
+def _coletar_alvos_controles(df_analise: pd.DataFrame) -> Dict[str, str]:
+    """Para cada controle (CN/CP), monta a string de todos os alvos COM CT
+    (incluindo RPs), no formato ``ALVO - CT``. Alvos sem CT sao omitidos."""
+    detalhe: Dict[str, str] = {}
+    if df_analise is None or getattr(df_analise, "empty", True):
+        return detalhe
+    df = _normalizar_dataframe_para_plate_model(df_analise)
+    col_amostra = next(
+        (c for c in ("Amostra", "Sample", "Codigo") if c in df.columns),
+        None,
+    )
+    if col_amostra is None:
+        return detalhe
+    alvos, rps = _extrair_alvos_e_rps([str(c) for c in df.columns])
+    ordem = list(alvos) + list(rps)
+    for _, linha in df.iterrows():
+        codigo = str(linha.get(col_amostra, "") or "").strip()
+        ctrl = _linha_eh_controle(codigo)
+        if ctrl is None or ctrl in detalhe:
+            continue
+        partes: List[str] = []
+        for alvo in ordem:
+            ct_fmt = formatar_ct(_ct_da_linha(linha, alvo))
+            if ct_fmt:
+                partes.append(f"{_nome_alvo_excel(alvo)}-{ct_fmt}")
+        detalhe[ctrl] = "| ".join(partes)
+    return detalhe
 
 
 def _normalizar_nome_coluna(nome: object) -> str:
@@ -676,7 +752,13 @@ def _escrever_bloco(
                 ws.cell(row=r_iter, column=c_iter).fill = _FILL_GRAY
 
 
-def _escrever_cabecalho(ws, mapa: MapaPlaca, total_cols_excel: int, nome_operador: str) -> int:
+def _escrever_cabecalho(
+    ws,
+    mapa: MapaPlaca,
+    total_cols_excel: int,
+    nome_operador: str,
+    placa_valida: Optional[bool] = None,
+) -> int:
     """Escreve cabecalho (nome exame + placa OK) e retorna a linha onde o grid comeca."""
     # Linha 1: nome exame
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols_excel)
@@ -686,28 +768,29 @@ def _escrever_cabecalho(ws, mapa: MapaPlaca, total_cols_excel: int, nome_operado
     c.fill = _FILL_HEADER_LIGHT
     ws.row_dimensions[1].height = 24
 
-    # Linha 2: placa info
-    ws.merge_cells(
-        start_row=2, start_column=1, end_row=2, end_column=max(1, total_cols_excel // 2)
-    )
+    # Linha 2: placa info ocupa A2:Q2 (cols 1-17) e contem o Operador (usuario logado).
+    info_end_col = min(17, total_cols_excel)
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=info_end_col)
     nome_user = nome_operador if nome_operador else "Usuário Desconhecido"
     data_atual = datetime.now().strftime("%d/%m/%Y")
     placa_info = ws.cell(row=2, column=1, value=f"Placa: {mapa.nome_placa}  |  Operador: {nome_user}  |  Data: {data_atual}")
-    placa_info.font = _font(10)
+    placa_info.font = _font(12)
     placa_info.alignment = Alignment(horizontal="left", vertical="center", indent=1)
 
-    # Linha 2 (direita): validacao da placa
-    col_validacao_ini = max(1, total_cols_excel // 2) + 1
+    # Linha 2 (direita): validacao da placa em R2:X2 (cols 18-24).
+    # Fonte canonica da validade = Status_Placa (regra do pipeline); fallback mapa.placa_ok.
+    placa_ok = mapa.placa_ok if placa_valida is None else bool(placa_valida)
+    col_validacao_ini = min(18, total_cols_excel)
     ws.merge_cells(
         start_row=2,
         start_column=col_validacao_ini,
         end_row=2,
         end_column=total_cols_excel,
     )
-    status_text = "PLACA OK" if mapa.placa_ok else "RECOMECAR PROCESSO"
+    status_text = "PLACA OK" if placa_ok else "PLACA INVÁLIDA"
     c_status = ws.cell(row=2, column=col_validacao_ini, value=status_text)
-    c_status.font = _font(11, bold=True, white=mapa.placa_ok)
-    c_status.fill = _FILL_BLACK if mapa.placa_ok else _FILL_GRAY
+    c_status.font = _font(11, bold=True, white=placa_ok)
+    c_status.fill = _FILL_BLACK if placa_ok else _FILL_GRAY
     c_status.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[2].height = 20
 
@@ -716,33 +799,27 @@ def _escrever_cabecalho(ws, mapa: MapaPlaca, total_cols_excel: int, nome_operado
 
 
 def _escrever_rodape_controles(
-    ws, mapa: MapaPlaca, row_ini: int, total_cols_excel: int
+    ws,
+    mapa: MapaPlaca,
+    row_ini: int,
+    total_cols_excel: int,
+    controles_detalhe: Optional[Dict[str, str]] = None,
 ) -> int:
-    if not mapa.controles:
-        return 57
+    controles_detalhe = controles_detalhe or {}
 
-    cn_ctrl = next((c for c in reversed(mapa.controles) if c.nome == "CN"), None)
-    cp_ctrl = next((c for c in reversed(mapa.controles) if c.nome == "CP"), None)
-
-    for linha_alvo, ctrl_obj in [(54, cn_ctrl), (55, cp_ctrl)]:
-        if not ctrl_obj:
-            continue
-            
-        try:
-            # Remove virgulas se houver
-            ct_sanitized = str(ctrl_obj.ct_formatado).replace(",", ".")
-            ct_val = round(float(ct_sanitized), 3)
-            ct_str = f"{ct_val:.3f}"
-        except:
-            ct_str = ctrl_obj.ct_formatado or "ND"
-            
-        texto = f"{ctrl_obj.nome}: CT = {ct_str}"
-        
-        ws.merge_cells(start_row=linha_alvo, start_column=1, end_row=linha_alvo, end_column=24)
+    # CN em A54:O54 e CP em A55:O55, com todos os alvos+RP que tiverem CT.
+    for linha_alvo, nome in [(54, "CN"), (55, "CP")]:
+        detalhe = controles_detalhe.get(nome, "")
+        texto = f"{nome}: {detalhe}" if detalhe else f"{nome}:"
+        ws.merge_cells(start_row=linha_alvo, start_column=1, end_row=linha_alvo, end_column=15)
         c_cell = ws.cell(row=linha_alvo, column=1, value=texto)
         c_cell.font = _font(10, bold=True)
-        c_cell.alignment = Alignment(horizontal="center", vertical="center")
-        c_cell.border = _BLOCK_BORDER
+        c_cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        _aplicar_borda_externa(ws, linha_alvo, 1, linha_alvo, 15)
+
+    # Bloco mesclado vazio P54:X56 (cols 16-24) com borda externa preta.
+    ws.merge_cells(start_row=54, start_column=16, end_row=56, end_column=24)
+    _aplicar_borda_externa(ws, 54, 16, 56, 24)
 
     return 57
 
@@ -793,7 +870,9 @@ def renderizar_xlsx_grade_fisica(
     ws.print_options = PrintOptions(horizontalCentered=True)
 
     total_cols_excel = PHYSICAL_TOTAL_COLS
-    _escrever_cabecalho(ws, mapa, total_cols_excel, nome_operador)
+    _escrever_cabecalho(
+        ws, mapa, total_cols_excel, nome_operador, _placa_valida_do_df(df_analise)
+    )
 
     ws.cell(row=PHYSICAL_GRID_HEADER_ROW, column=PHYSICAL_GRID_LABEL_COL, value="")
     for col_label in COL_LABELS:
@@ -886,7 +965,10 @@ def renderizar_xlsx_grade_fisica(
             ws.row_dimensions[row].height = 6
 
     rodape_row = last_well_row + PHYSICAL_BLOCK_ROWS + 1
-    proxima_linha = _escrever_rodape_controles(ws, mapa, rodape_row, total_cols_excel)
+    controles_detalhe = _coletar_alvos_controles(df_analise)
+    proxima_linha = _escrever_rodape_controles(
+        ws, mapa, rodape_row, total_cols_excel, controles_detalhe
+    )
     _escrever_assinaturas(ws, proxima_linha, total_cols_excel, nome_operador)
 
     diretorio = os.path.dirname(caminho_arquivo)
