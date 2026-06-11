@@ -3,10 +3,8 @@
         "ui_single_window": true
     },
     "ui_single_window": true,
-    "data_root": "C:\\Integragal - Backup - 20260128_151811\\dados",
-    "allowed_roots": [
-        "C:\\Integragal - Backup - 20260128_151811\\dados"
-    ],
+    "data_root": "",
+    "allowed_roots": [],
     "storage_backend": "csv",
     "shared_storage": {
         "required": false,
