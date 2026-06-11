@@ -2,6 +2,71 @@
 
 ---
 
+## 2026-06-10 — IO-FIX-7500: leitura generica nao achava a aba do 7500
+
+- Bug: analisar planilha do 7500 falhava com `'NoneType' object has no attribute 'shape'`.
+  Causa: `utils/io_utils.py` lia `sheet_name="Results"` fixo (nome do QuantStudio); o export do
+  7500 usa outra aba -> `pd.read_excel` levantava `Worksheet named 'Results' not found` ->
+  `read_data_with_auto_detection` retornava `None` -> `df.shape` em
+  `analysis_service._carregar_arquivo_resultados` quebrava.
+- Fix (escopo: so o crash, sem auto-deteccao de extrator — decisao do usuario):
+  - `utils/io_utils.py`: novo `_resolver_sheet_resultados(filepath)` (prefere aba "Results";
+    senao primeira aba nao-extracao; fallback 1a aba/"Results"). Os dois `sheet_name="Results"`
+    (em `detectar_linha_cabecalho` e `read_data_with_auto_detection`) passaram a usar o resolvido.
+  - `services/analysis/analysis_service.py`: guarda de `None` nos 3 pontos de carregamento
+    (`_carregar_arquivo_resultados`, fallback de `_com_extrator`, e `_carregar_arquivo_extracao`)
+    -> `ValueError` com mensagem clara (nome do arquivo) em vez de AttributeError criptico.
+- Guardiao: `tests/test_io_utils_sheet_resolution.py` (5 passed: prefere Results, fallback p/ aba
+  do 7500, ignora aba de extracao, le 7500 sem Results, Results ainda funciona). Regressao 59 passed.
+- Follow-up opcional registrado no plano: auto-detectar equipamento e usar `extrair_7500`.
+
+## 2026-06-10 — MAPA-GAL-001: ajustes de Mapa da Placa + loteKit no CSV GAL
+
+Rodada autorizada (plano aprovado). 5 ajustes:
+- **Item 1 (cor CN/CP, plate viewer):** `ui/components/plate_viewer.py` — `STATUS_COLORS`
+  invertido (CN->verde/CONTROLE_CP, CP->vermelho/CONTROLE_CN); novas funcoes puras
+  `controle_valido`/`_controle_tem_alvo_detectavel`; em `resolve_well_color`, controle
+  invalido recebe `STATUS_COLORS[INVALID]` (so colore verde/vermelho quando valido).
+- **Item 2 (loteKit):** `exportacao/gal_formatter.py` — parametro `lote_kit` em
+  `_build_base_dataframe`/`_build_gal_dataframe_core`/`formatar_para_gal`/`gerar_painel_csvs`/
+  `exportar_csv_gal_oficial` (default ""); callers `ui/janela_analise_completa.py`
+  (`exportar_csv_gal_oficial(..., lote_kit=str(self.lote or ""))`) e `utils/gui_utils.py`.
+  Fonte canonica = campo obrigatorio "Lote / Kit" (`app_state.lote`).
+- **Item 3 (cabecalho linha 2):** `mapa_placa_exporter._escrever_cabecalho` — info/Operador
+  em A2:Q2 (1-17) e validacao em R2:X2 (18-24).
+- **Item 4 (rodape controles):** `_escrever_rodape_controles` — CN em A54:O54, CP em A55:O55,
+  com todos os alvos+RP que tem CT (`ALVO - CT`), borda externa preta. Novo helper
+  `_coletar_alvos_controles(df_analise)` monta a string a partir das colunas `CT_*` das linhas
+  de controle (sem poluir `mapa.controles`/`placa_ok`). Novo helper `_aplicar_borda_externa`.
+- **Item 5 (bloco vazio):** celula mesclada P54:X56 vazia com borda externa preta.
+- Guardiao: `tests/test_mapa_gal_ajustes.py` (7 passed). Regressao GAL/grid/amp: 72 passed.
+- **Ajustes pos-verificacao (mesma rodada):** (a) Operador no cabecalho do mapa passa a usar o
+  usuario logado (`janela_analise_completa._gerar_mapa_placa_definitivo`: `self.usuario_logado`
+  com fallback para `quem_analisou_placa`/`quem_preparou_placa`), corrigindo "Usuário Desconhecido";
+  (b) rodape de controles em formato compacto `ALVO-CT` unido por "| "
+  (`_coletar_alvos_controles`), ex.: `CP: ADV-24,96| HMPV-23,46| ...`.
+- **Validade do cabecalho (segunda rodada de ajustes):** o cabecalho do `.xlsx` passou a
+  refletir a regra canonica de validade reusando a coluna `Status_Placa` do df_analise
+  (que ja respeita faixas de RP/CI e alvos definidas no exame), em vez do `mapa.placa_ok`
+  fraco (que ignorava RP e faixa do CP). Novo helper `_placa_valida_do_df`;
+  `_escrever_cabecalho` ganhou parametro `placa_valida` (fallback `mapa.placa_ok`).
+  Texto R2:X2 agora "PLACA OK"/"PLACA INVÁLIDA" (antes "RECOMECAR PROCESSO").
+  Fonte da A2:Q2 = 12 (antes 10). A1:X1 ja continha o nome do exame (sem mudanca).
+  Diagnostico: ha 3 calculos de validade (cabecalho Excel fraco; cores na tela por poco;
+  pipeline `_avaliar_status_placa_vectorized`=Status_Placa, o correto). Alinhado o cabecalho
+  ao pipeline. Edicao de CT/aceite na tela fora de escopo desta rodada (decisao do usuario).
+- Guardiao atualizado: `tests/test_mapa_gal_ajustes.py` (10 passed).
+- **Verificacao + Opcao A (Status_Placa fresco apos edicao):** verificado que editar CT no
+  Mapa da Placa dispara `_reanalise_completa_pos_mapa` -> recalcula `Res_*`/`Res_RP_*` e
+  `Resultado_geral`, mas NAO recalculava `Status_Placa` (ficava defasado da analise original).
+  Como o cabecalho do `.xlsx` agora le `Status_Placa`, ele nao refletiria edicoes. Corrigido
+  com novo metodo `_recalcular_status_placa()` em `ui/janela_analise_completa.py`, chamado no
+  `_reanalise_completa_pos_mapa`, reusando `_avaliar_status_placa_vectorized` sobre as colunas
+  `Res_*` ja atualizadas (fonte unica de verdade). Guardiao
+  `test_status_placa_reflete_edicao_de_ct`: edicao que invalida o CP muda Status_Placa e o
+  cabecalho acompanha. Regressao 65 passed.
+- Pendente: formalizar CA em requirements/design/tasks em rodada SDD (governanca §18).
+
 ## 2026-06-02 — Fase 5 (Audit Refactoring) — implementação concluída
 Executor: Claude Code (Opus 4.8), modo execucao supervisionado SDD (`specs/audit_refactoring/`)
 
@@ -1652,3 +1717,92 @@ em invocacao UNICA (T-AUD-021). 6.D pendente de retomada (recomendado /clear / s
 - VR1e2/ZDC preservados como exames canonicos de referencia com regras CT explicitas, nao como limite fixo do catalogo.
 - Validacoes: paridade AGENTS/CLAUDE `True`; `tests/test_agents_claude_md_sha_match.py` 1 passed; `main.py --help` passou.
 - Nenhum codigo, CSV, DB ou arquivo sensivel aberto/alterado.
+
+## 2026-06-10 — AMP-STATUS-001: reclassificacao "Indeterminado (ampl)" por coluna Amp Status
+
+- Regra nova (autorizada): apos a analise por Ct, todo alvo classificado como Detectavel ou
+  Indeterminado cujo valor da coluna "Amp Status" da planilha de corrida seja `No Amp` ou
+  `Inconclusive` passa a ser Indeterminado (seguindo as regras de Indeterminado: prioridade,
+  repeticao SIM, cor/codigo GAL 3), com rotulo `Indeterminado (ampl)` na grade e
+  `INDETERMINADO (AMPL).` nos mapas de placa. Alvos Nao Detectaveis nao sofrem o gatilho.
+  Exames sem a coluna mantem o comportamento anterior (coluna opcional).
+- Captura da coluna por NOME de cabecalho (`Amp Status`/`amp_status`/`AmpStatus`), generico
+  para qualquer exame; `_normalize_col_key(...) == "ampstatus"`.
+- Arquivos: `domain/resultado_geral.py` (`RESULTADO_INDETERMINADO_AMPL`,
+  `is_amp_status_indeterminante`, `reclassificar_alvo_por_amp_status`, `_eh_indeterminado`);
+  `services/equipment/equipment_extractors.py` (`_localizar_indice_amp_status`/`_ler_amp_status`
+  + captura em extrair_7500/cfx96/quantstudio); `services/analysis/analysis_helpers.py`
+  (`identificar_colunas_pcr` retorna `amp_status`); `services/analysis/analysis_service.py`
+  (df_norm Amp_Status, pivot_amp, override no loop de alvos, deteccao/propagacao do rotulo na
+  agregacao vetorizada, alias `ampstatus`->`Amp Status`); `domain/mapa_placa_layout.py`
+  (campo `BlocoAmostra.ampl` + texto; `classificar_amostra` por startswith);
+  `exportacao/mapa_placa_exporter.py` (propaga `ampl`).
+- Consumidores por igualdade exata verificados e dispensados de edicao: `ui/components/badges.py`
+  (`ClinicalBadge` nao instanciado em runtime) e `utils/result_normalizer.py`
+  (so usado por `analise/` legado; faz passthrough de rotulo desconhecido).
+- Guardiao: `tests/test_amp_status_indeterminado.py` (12 passed). Regressao:
+  test_poco_vazio_invalido / test_full_analysis_grid / test_dominio_imports_puros /
+  test_analysis_service_geometric_expansion / test_ui_janela_analise_regression (58 passed).
+  Suite completa: 116 passed, 1 falha ambiental pre-existente (`test_initial_setup_e2e` —
+  tkinter sem root/display, nao relacionada).
+- Pendente: formalizar como CA em `requirements.md`/`design.md`/`tasks.md` em rodada SDD propria
+  (governanca CLAUDE.md §18).
+
+
+## 2026-06-11 — Rodada de Validacao e Depuracao dos Achados da Auditoria READ-ONLY
+
+Contexto: validacao dirigida dos 12 achados (FINDING-001..012) de uma auditoria READ-ONLY
+externa. Modo: inspecao estatica segura + testes-guardiao nao destrutivos. Sem alterar
+`config.json`, sem GAL/Selenium real, sem abrir dados sensiveis, sem resolver DHP-10/11/12.
+
+Classificacao final (resumo):
+- Confirmados e CORRIGIDOS nesta rodada: 002, 003, 004, 006/GAL-PEND-002, 007, 009.
+- FINDING-010 (lacuna de rastreabilidade) confirmado: as suites recomendadas em CLAUDE.md §11 /
+  AGENTS.md / design.md §7 (`test_ct_classification.py`, `test_vr1_vr2_inconclusivo_runtime.py`,
+  `test_analysis_service_phase6_vectorization.py`, `test_classificacao_cores_caracterizacao_h03.py`,
+  `test_extraction_plate_mapping_use_case.py`, `test_mapeamento_extracao_caracterizacao_h04.py`,
+  `test_0260325_exam_creator_registry_rollout.py`, `test_shared_storage_standardization.py`,
+  `test_t14_gal_idempotency_revalidation.py`, `test_extraction_caracterizacao_t14.py`) NAO existem
+  na arvore atual (`tests/` tem 32 arquivos, nenhum com esses nomes). Esta e a lacuna ja
+  registrada como **TEST-004** em `requirements.md §10` ("Reintegracao da suite de testes completa,
+  atualmente ausente/vazia... Pendente"). Acao: alinhar §11/design §7 aos nomes reais OU restaurar
+  as suites — exige rodada de governanca (CLAUDE.md §18) / SDD; NAO alterado nesta rodada.
+- FINDING-011 parcial / falso-positivo no fluxo real: a divergencia de borda de CT (8.0/35.0)
+  existe apenas no classificador base (`config/business_rules` + `domain/ct_rules.classificar_ct`
+  + `logic_engine`), usado so como `legacy_status` shadow em `analysis_service`. O fluxo canonico
+  real usa `classify_ct_with_runtime_profile`, que com `faixas_ct` do exame VR1e2 (`rp_min=8.01`,
+  `detect_max=35.0`, `inconc_min=35.01`) produz exatamente as bordas do requisito §5.1.
+  Recomendacao: testes parametrizados de borda + documentar runtime como canonico (rodada SDD).
+- FINDING-012 confirmado baixo: 4 contratos de equipamento (`7500_extended`/`quantstudio`
+  active=true; `abi_7500` active=false; `template_equipment_profile`). Recomendacao: validar que
+  registry/UI nao expoe inativo/template como operacional.
+- FINDING-005 (CONC-003) Alta, NAO implementado: GAL sem claim/lease interprocesso; `inflight_keys`
+  e apenas intra-processo/intra-CSV. Mantido como recomendacao de desenho (claim/lease transacional
+  com TTL antes de `enviar_amostra`). Mudanca critica/ampla — fora de correcao pequena com teste.
+- FINDING-001 e DHP-10/11/12 / PRIV-001 permanecem bloqueados por decisao humana / rodada de
+  configuracao/LGPD controlada.
+
+Achados adjacentes (Fase 5):
+- ADJ-001: 2o import top-level de Selenium fora de adapter em `exportacao/debug_login_runner.py:17`.
+- ADJ-002: `services/engine/analysis_engine.py::_map_ct_result` tambem consome o classificador base.
+- ADJ-003 (limpo): `config/default_config.json` e `config/feature_flags.json` sem caminhos
+  absolutos — FINDING-001 isolado ao `config.json`.
+- ADJ-004: `config/contracts/equipment/template_equipment_profile.json` com `active=true`.
+
+Commits desta rodada (branch `refactor/audit-refactoring`, PR #2):
+- `1167b3f` — FINDING-002 (mensagem dinamica de `ExamForaDoEscopoError` citando `active_exams`) +
+  FINDING-003 (remocao do metodo morto `_calcular_geral_fallback`, prioridade clinica divergente).
+  Guardioes: `tests/test_exam_scope_message.py`, `tests/test_ui_no_divergent_resultado_geral.py`.
+- `0860c4e` — FINDING-007 (lazy import de `seleniumrequests` em `_default_webdriver_factory`) +
+  GAL-PEND-002/FINDING-006 (suite mockada do `GalSendUseCase` sem Selenium real:
+  `tests/test_gal_send_use_case_mocked.py`, 8 passed; cobre dual-key/CA-11, inflight,
+  nao_encontrado, csv invalido, autorizacao, guardiao AST de import).
+- `9f55894` — FINDING-004 (lock do `config.json` fail-closed + ownership-safe em
+  `services/core/config_service._save_config`; constantes de timeout extraidas; `save()` retorna
+  bool real; `configure_shared_storage` falha-fechado). Guardiao:
+  `tests/test_config_lock_fail_closed.py` (3 casos, `CONFIG_PATH` isolado em `tmp`).
+- (este) — FINDING-009 (`README.md`: linha de lock/atomicidade de `config.json` atualizada) +
+  registro de FINDING-010/TEST-004 e do resumo da rodada nesta nota.
+
+Estado: `config.json` NAO alterado em nenhum commit. Nenhum dado sensivel aberto. Nenhuma DHP
+resolvida. Suites relevantes verdes a cada etapa.

@@ -1369,57 +1369,35 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
             self.df_analise["Resultado_geral"] = ""
         self._recalcular_resultados_por_ct()
         self._recalcular_resultado_geral()
+        self._recalcular_status_placa()
         self._popular_tabela()
         registrar_log("Sync", "Re-analise completa pos-mapa concluida", "INFO")
 
-    def _calcular_geral_fallback(self, row, result_cols):
-        """
-        Fallback: Calcula Resultado_geral para uma row quando coluna não existe.
-        Replica lógica de PlateModel._calcular_resultado_geral.
+    def _recalcular_status_placa(self) -> None:
+        """Recalcula Status_Placa apos edicao de CT no Mapa da Placa.
+
+        Usa a regra canonica do pipeline (`_avaliar_status_placa_vectorized`) sobre
+        as colunas Res_* ja atualizadas por `_recalcular_resultados_por_ct`, mantendo
+        Status_Placa como fonte unica de verdade (consumida pelo Mapa Definitivo).
         """
         try:
-            from services.suspected_orphan_telemetry import log_suspected_orphan_usage
-            log_suspected_orphan_usage(
-                "ui.janela_analise_completa._calcular_geral_fallback",
-                throttle_seconds=3600,
-            )
-        except Exception:
-            pass
+            from services.analysis.analysis_service import _avaliar_status_placa_vectorized
 
-        has_pos = False
-        has_inc = False
-        has_inv = False
-        has_nd = False
-        
-        for col in result_cols:
-            # Filtrar RPs
-            alvo = col.replace("Resultado_", "").replace("Res_", "")
-            alvo_upper = alvo.upper()
-            if alvo_upper.startswith("RP") or "RP_" in alvo_upper or "RP-" in alvo_upper:
-                continue
-            
-            token = classify_result_text(row.get(col, ""))
-            if token == "DET":
-                has_pos = True
-            elif token == "INC":
-                has_inc = True
-            elif token == "INV":
-                has_inv = True
-            elif token == "ND":
-                has_nd = True
-        
-        # Prioridades
-        if has_pos:
-            return "Detectável"
-        elif has_inc:
-            return "Indeterminado"
-        elif has_inv:
-            return "Inválido"
-        elif has_nd:
-            return "Não detectável"
-        else:
-            return ""
-    
+            alvos_cols_res = [
+                c for c in self.df_analise.columns
+                if c.startswith("Res_") and "RP" not in c
+            ]
+            self.df_analise["Status_Placa"] = _avaliar_status_placa_vectorized(
+                self.df_analise, alvos_cols_res
+            )
+            registrar_log(
+                "Recalc",
+                f"Status_Placa recalculado: {self.df_analise['Status_Placa'].iloc[0] if len(self.df_analise) else 'n/d'}",
+                "INFO",
+            )
+        except Exception as exc:  # noqa: BLE001
+            registrar_log("Recalc", f"Falha ao recalcular Status_Placa (continuando): {exc}", "WARNING")
+
     def _mostrar_relatorio(self):
         """Exibe relatório estatístico em tabela profissional."""
         try:
@@ -1750,6 +1728,7 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
                 df_selecionadas,
                 exam_cfg=None,
                 exame=self.exame,
+                lote_kit=str(self.lote or ""),
             )
             df_gal = export_result.dataframe
             gal_path = export_result.gal_path
@@ -1855,7 +1834,13 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
             os.makedirs(diretorio_saida, exist_ok=True)
 
             app_state = getattr(self.main_window, "app_state", None)
-            nome_op = getattr(app_state, "quem_analisou_placa", "") or getattr(app_state, "quem_preparou_placa", "") or "Usuário Desconhecido"
+            # Operador = usuario logado; campos opcionais sao apenas fallback.
+            nome_op = (
+                str(getattr(self, "usuario_logado", "") or "").strip()
+                or getattr(app_state, "quem_analisou_placa", "")
+                or getattr(app_state, "quem_preparou_placa", "")
+                or "Usuário Desconhecido"
+            )
 
             caminho = gerar_mapa_placa_xlsx(
                 df_analise=self.df_analise,

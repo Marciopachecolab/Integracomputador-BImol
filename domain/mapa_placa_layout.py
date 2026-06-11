@@ -77,6 +77,7 @@ class BlocoAmostra:
     classificacao: str  # CLASSIF_*
     detectaveis: Tuple[str, ...]  # alvos detectaveis (para texto "DETECTAVEL PARA X, Y")
     poco_label: str = ""  # ex: "A1+A2+A3" — opcional, util para rodape
+    ampl: bool = False  # indeterminado derivado da coluna "Amp Status" (No Amp/Inconclusive)
 
     @property
     def texto_resultado(self) -> str:
@@ -87,6 +88,8 @@ class BlocoAmostra:
         if self.classificacao == CLASSIF_NAO_DETECTAVEL:
             return "NAO DETECTAVEL."
         if self.classificacao == CLASSIF_INDETERMINADO:
+            if self.ampl:
+                return "INDETERMINADO (AMPL)."
             return "INDETERMINADO."
         if self.classificacao == CLASSIF_INVALIDO:
             return "INVALIDO."
@@ -180,7 +183,11 @@ def classificar_amostra(
     has_inderterm = False
     for alvo, resultado in resultados_por_alvo.items():
         norm = _norm(resultado)
-        if norm in _INDETERMINADO_TOKENS:
+        if (
+            norm in _INDETERMINADO_TOKENS
+            or norm.startswith("indeterminado")
+            or norm.startswith("inconclusivo")
+        ):
             has_inderterm = True
         elif norm in _DETECTAVEL_TOKENS:
             detectaveis.append(alvo)

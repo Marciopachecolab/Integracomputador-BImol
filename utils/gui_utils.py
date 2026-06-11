@@ -869,10 +869,16 @@ class TabelaComSelecaoSimulada(AfterManagerMixin, ctk.CTkToplevel):
             exame = getattr(self, "exame", "")
             
             # GERAR CSV GAL (agora sim, após histórico salvo)
+            lote_kit = str(
+                getattr(self, "lote", None)
+                or getattr(app_state, "lote", "")
+                or ""
+            )
             export_result = exportar_csv_gal_oficial(
                 df_para_gal,
                 exam_cfg=exam_cfg,
                 exame=exame,
+                lote_kit=lote_kit,
             )
             df_gal = export_result.dataframe
             gal_path = export_result.gal_path

@@ -38,6 +38,11 @@ from utils.logger import registrar_log
 # O único ficheiro de configuração que a aplicação irá conhecer
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 
+# Parametros do lock inter-processo de gravacao do config.json (INST-001 / CONC-004).
+# Extraidos para constantes de modulo para permitir ajuste/teste sem alterar a logica.
+_CONFIG_LOCK_MAX_ATTEMPTS = 50
+_CONFIG_LOCK_SLEEP_SECONDS = 0.1
+
 # Keys de paths que devem ser resolvidas a partir do data_root, quando configurado
 _DATA_ROOT_PATH_KEYS = {
     "log_file",
@@ -316,8 +321,7 @@ class ConfigService:
         Returns:
             bool: True se salvou com sucesso, False caso contrário
         """
-        self._save_config()
-        return True
+        return self._save_config()
 
     def configure_shared_storage(self, shared_root: str) -> tuple[bool, str]:
         """
@@ -359,7 +363,12 @@ class ConfigService:
         shared_cfg["root"] = root
         self._config["shared_storage"] = shared_cfg
 
-        self._save_config()
+        if not self._save_config():
+            return (
+                False,
+                "Outro processo esta gravando a configuracao (lock ativo). "
+                "Nenhuma alteracao foi gravada. Tente novamente em instantes.",
+            )
         registrar_log(
             "ConfigService",
             f"Compartilhamento padronizado com sucesso: {root}",
@@ -666,27 +675,41 @@ class ConfigService:
 
         return validated_paths
 
-    def _save_config(self):
-        """Salva a configuração atual no ficheiro JSON garantindo atomicidade e lock inter-processo."""
+    def _save_config(self) -> bool:
+        """Salva a configuração no JSON com escrita atômica e lock inter-processo.
+
+        Fail-closed (FINDING-004 / CONC-004): se o lock não for adquirido dentro
+        do timeout, NÃO grava e retorna False — evitando escrita concorrente
+        (lost update) entre administradores. O lock só é removido por quem o
+        adquiriu (não remove lock alheio).
+
+        Returns:
+            bool: True se gravou; False se não conseguiu o lock (não gravou).
+        """
         import tempfile
         import shutil
         import time
 
         lock_path = CONFIG_PATH + ".lock"
-        
-        for _ in range(50):
+
+        acquired = False
+        for _ in range(_CONFIG_LOCK_MAX_ATTEMPTS):
             try:
                 fd_lock = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
                 os.close(fd_lock)
+                acquired = True
                 break
             except FileExistsError:
-                time.sleep(0.1)
-        else:
+                time.sleep(_CONFIG_LOCK_SLEEP_SECONDS)
+
+        if not acquired:
             registrar_log(
                 "ConfigService",
-                "Timeout aguardando lock de escrita para o config.json. Procedendo forcado.",
-                "WARNING"
+                "Timeout aguardando lock de escrita do config.json. Gravacao abortada "
+                "(fail-closed) para evitar escrita concorrente. Tente novamente.",
+                "ERROR",
             )
+            return False
 
         try:
             if os.path.exists(CONFIG_PATH):
@@ -698,8 +721,9 @@ class ConfigService:
                 json.dump(self._config, f, indent=4, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
-            
+
             os.replace(tmp_path, CONFIG_PATH)
+            return True
         except Exception as e:
             registrar_log(
                 "ConfigService",
@@ -711,12 +735,15 @@ class ConfigService:
                     os.unlink(tmp_path)
             except OSError:
                 pass
+            return False
         finally:
-            try:
-                if os.path.exists(lock_path):
-                    os.unlink(lock_path)
-            except OSError:
-                pass
+            # Ownership: só remove o lock que NÓS criamos (nunca lock alheio).
+            if acquired:
+                try:
+                    if os.path.exists(lock_path):
+                        os.unlink(lock_path)
+                except OSError:
+                    pass
 
 
     def restore_backup(self) -> tuple[bool, str]:

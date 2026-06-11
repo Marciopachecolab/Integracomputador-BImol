@@ -293,6 +293,7 @@ def _build_base_dataframe(
     cod_col: pd.Series,
     exam_value: str,
     panel_value: str,
+    lote_kit: str = "",
 ) -> pd.DataFrame:
     df_out = pd.DataFrame()
     df_out["codigoAmostra"] = cod_col
@@ -304,7 +305,7 @@ def _build_base_dataframe(
     df_out["registroInterno"] = cod_col
     df_out["kit"] = str(getattr(cfg, "kit_codigo", "1175") or "1175")
     df_out["reteste"] = ""
-    df_out["loteKit"] = ""
+    df_out["loteKit"] = str(lote_kit or "")
     df_out["dataProcessamentoFim"] = datetime.now().strftime("%d/%m/%Y")
     df_out["valorReferencia"] = ""
     df_out["observacao"] = ""
@@ -398,6 +399,7 @@ def _build_gal_dataframe_core(
     include_only_exportable: bool,
     emit_debug_logs: bool,
     contract_runtime: dict[str, Any] | None = None,
+    lote_kit: str = "",
 ) -> pd.DataFrame:
     runtime = contract_runtime or _resolve_gal_contract_runtime(cfg)
     df_in, colmap = _prepare_input_frame(df_resultados)
@@ -407,6 +409,7 @@ def _build_gal_dataframe_core(
         cod_col=cod_col,
         exam_value=exam_value,
         panel_value=panel_value,
+        lote_kit=lote_kit,
     )
 
     if include_only_exportable:
@@ -513,6 +516,7 @@ def exportar_csv_gal_oficial(
     exame: str | None = None,
     reports_dir: str | None = None,
     timestamp_utc: datetime | None = None,
+    lote_kit: str = "",
 ) -> GalCsvExportResult:
     """
     Gera os dois artefatos oficiais de CSV GAL.
@@ -521,7 +525,7 @@ def exportar_csv_gal_oficial(
     - `gal_<timestamp>Z_exame.csv`
     - `gal_last_exame.csv`
     """
-    df_gal = formatar_para_gal(df_resultados, exam_cfg=exam_cfg, exame=exame)
+    df_gal = formatar_para_gal(df_resultados, exam_cfg=exam_cfg, exame=exame, lote_kit=lote_kit)
     output_dir = _resolve_reports_dir(reports_dir)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -538,7 +542,7 @@ def exportar_csv_gal_oficial(
     return GalCsvExportResult(dataframe=df_gal, gal_path=gal_path, gal_last_path=gal_last_path)
 
 
-def formatar_para_gal(df, exam_cfg=None, exame: str | None = None):
+def formatar_para_gal(df, exam_cfg=None, exame: str | None = None, lote_kit: str = ""):
     """
     Formata o resultado para layout GAL usando metadados do exame (registry).
     
@@ -564,6 +568,7 @@ def formatar_para_gal(df, exam_cfg=None, exame: str | None = None):
         include_only_exportable=True,
         emit_debug_logs=False,
         contract_runtime=contract_runtime,
+        lote_kit=lote_kit,
     )
 
     contract_columns = obter_colunas_contrato_gal(exam_cfg=cfg)
@@ -582,7 +587,7 @@ def formatar_para_gal(df, exam_cfg=None, exame: str | None = None):
     return df_out[contract_columns]
 
 
-def gerar_painel_csvs(df_resultados, exam_cfg=None, exame: str | None = None, output_dir: str | None = None):
+def gerar_painel_csvs(df_resultados, exam_cfg=None, exame: str | None = None, output_dir: str | None = None, lote_kit: str = ""):
     """
     Gera CSVs separados por painel (panel_tests_id) usando export_fields do exam_cfg.
     
@@ -622,6 +627,7 @@ def gerar_painel_csvs(df_resultados, exam_cfg=None, exame: str | None = None, ou
         include_only_exportable=False,
         emit_debug_logs=False,
         contract_runtime=contract_runtime,
+        lote_kit=lote_kit,
     )
 
     ts = datetime.now().strftime("%Y%m%dT%H%M%SZ")
