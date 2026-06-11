@@ -136,14 +136,21 @@ Testes guardioes e pendencias registradas (T-AUD em `tasks.md`):
 
 ## 11. Suites recomendadas
 
+> Nota (2026-06-11, FINDING-010/TEST-004): os comandos abaixo foram realinhados aos
+> arquivos de teste realmente presentes em `tests/`. A reintegracao da suite historica
+> completa permanece pendente em **TEST-004** (`requirements.md §10`).
+
 ```powershell
-python -m pytest tests/test_ct_classification.py tests/test_vr1_vr2_inconclusivo_runtime.py -q --tb=short
-python -m pytest tests/test_analysis_service_phase6_vectorization.py tests/test_classificacao_cores_caracterizacao_h03.py -q --tb=short
-python -m pytest tests/test_extraction_plate_mapping_use_case.py tests/test_mapeamento_extracao_caracterizacao_h04.py -q --tb=short
-python -m pytest tests/test_0260325_exam_creator_registry_rollout.py tests/test_shared_storage_standardization.py -q --tb=short
-python -m pytest tests/test_t14_gal_idempotency_revalidation.py tests/test_extraction_caracterizacao_t14.py -q --tb=short
-# Guardioes de uniformizacao de paths (LOG-UNIF-001/002):
-python -m pytest tests/test_log_paths_uniformization.py tests/test_banco_path_fallbacks.py -q --tb=short
+# CT por borda (runtime profile canonico) + Resultado_geral + dominio puro (FINDING-011)
+python -m pytest tests/test_ct_borda_runtime_profile.py tests/test_poco_vazio_invalido.py tests/test_amp_status_indeterminado.py tests/test_dominio_imports_puros.py -q --tb=short
+# Pipeline de analise e UI (sem duplicar regra clinica)
+python -m pytest tests/test_full_analysis_grid.py tests/test_analysis_service_geometric_expansion.py tests/test_ui_janela_analise_regression.py tests/test_ui_no_divergent_resultado_geral.py -q --tb=short
+# Escopo de exames, wizard/GAL e equipamentos
+python -m pytest tests/test_exam_scope_message.py tests/test_exam_creator_campos_gal.py tests/test_exam_creator_preserva_gal_codigo.py tests/test_equipment_registry_active_only.py -q --tb=short
+# Idempotencia e concorrencia GAL (dual-key + claim/lease) sem Selenium
+python -m pytest tests/test_gal_send_use_case_mocked.py tests/test_gal_claims_repository.py tests/test_gal_send_use_case_claim_lease.py -q --tb=short
+# Config/instalacao (lock fail-closed, template-clean) e uniformizacao de paths
+python -m pytest tests/test_config_lock_fail_closed.py tests/test_config_json_template_clean.py tests/test_config_settings_save_propagates.py tests/test_log_paths_uniformization.py tests/test_banco_path_fallbacks.py -q --tb=short
 ```
 
 ## 12. Decisoes arquiteturais canonicas (pos-T06)

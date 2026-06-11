@@ -52,6 +52,16 @@ Regra viral:
 
 RP valido: `8.1 <= CT <= 35.0`.
 
+### 5.3 Fonte canonica de classificacao (FINDING-011)
+As bordas de CT de §5.1 e §5.2 sao aplicadas no fluxo real pelo **perfil de runtime por exame**
+(`faixas_ct`), via `services.analysis.analysis_runtime_contract.classify_ct_with_runtime_profile`
+— fonte canonica do resultado escrito em `Res_<alvo>`. O classificador base
+(`config.business_rules` + `domain.ct_rules.classificar_ct` + `services.analysis.logic_engine`)
+e legado/shadow: no pipeline e calculado apenas como `legacy_status` de paridade. Suas bordas
+(8.0/35.0) divergem deste requisito e **nao sao fonte da verdade**. O alinhamento das constantes
+do classificador base (Opcao B) permanece nao executado por ser latente (so afetaria o resultado
+se o perfil de runtime fosse desabilitado). Guardiao: `tests/test_ct_borda_runtime_profile.py`.
+
 ## 6. Regras de resultado geral
 Prioridade obrigatoria:
 1. RP invalido -> `Invalido`
@@ -80,7 +90,7 @@ Prioridade obrigatoria:
 
 ## 8. Criterios de aceite objetivos
 - CA-01: menu operacional lista apenas os exames habilitados em `active_exams`.
-- CA-02: bordas de CT de VR1e2 e ZDC passam nos testes de classificacao.
+- CA-02: bordas de CT de VR1e2 e ZDC passam nos testes de classificacao. Fonte canonica = perfil de runtime por exame (§5.3); guardiao de bordas: `tests/test_ct_borda_runtime_profile.py` (FINDING-011).
 - CA-03: linhas inconclusivas/indeterminadas mantem cor/tag correta na tabela.
 - CA-04: salvar edicao no mapa nao pode ser sobrescrito por recalculo de CT.
 - CA-05: fluxo do item 7 exibe lista rolavel de exames e botao de edicao visivel.
