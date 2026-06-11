@@ -1398,54 +1398,6 @@ class JanelaAnaliseCompleta(AfterManagerMixin, ctk.CTkFrame):
         except Exception as exc:  # noqa: BLE001
             registrar_log("Recalc", f"Falha ao recalcular Status_Placa (continuando): {exc}", "WARNING")
 
-    def _calcular_geral_fallback(self, row, result_cols):
-        """
-        Fallback: Calcula Resultado_geral para uma row quando coluna não existe.
-        Replica lógica de PlateModel._calcular_resultado_geral.
-        """
-        try:
-            from services.suspected_orphan_telemetry import log_suspected_orphan_usage
-            log_suspected_orphan_usage(
-                "ui.janela_analise_completa._calcular_geral_fallback",
-                throttle_seconds=3600,
-            )
-        except Exception:
-            pass
-
-        has_pos = False
-        has_inc = False
-        has_inv = False
-        has_nd = False
-        
-        for col in result_cols:
-            # Filtrar RPs
-            alvo = col.replace("Resultado_", "").replace("Res_", "")
-            alvo_upper = alvo.upper()
-            if alvo_upper.startswith("RP") or "RP_" in alvo_upper or "RP-" in alvo_upper:
-                continue
-            
-            token = classify_result_text(row.get(col, ""))
-            if token == "DET":
-                has_pos = True
-            elif token == "INC":
-                has_inc = True
-            elif token == "INV":
-                has_inv = True
-            elif token == "ND":
-                has_nd = True
-        
-        # Prioridades
-        if has_pos:
-            return "Detectável"
-        elif has_inc:
-            return "Indeterminado"
-        elif has_inv:
-            return "Inválido"
-        elif has_nd:
-            return "Não detectável"
-        else:
-            return ""
-    
     def _mostrar_relatorio(self):
         """Exibe relatório estatístico em tabela profissional."""
         try:

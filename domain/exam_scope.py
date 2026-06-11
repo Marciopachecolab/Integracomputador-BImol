@@ -9,6 +9,7 @@ class ExamForaDoEscopoError(ValueError):
     def __init__(self, nome_exame: str) -> None:
         self.nome_exame = nome_exame
         super().__init__(
-            f"Exame '{nome_exame}' nao esta nos exames ativos. "
-            "Apenas 'VR1e2 Biomanguinhos 7500' e 'ZDC BioManguinhos' sao permitidos."
+            f"Exame '{nome_exame}' nao esta habilitado em 'active_exams'. "
+            "Apenas exames listados em 'active_exams' com configuracao/contrato "
+            "valido no registry podem operar."
         )
