@@ -96,7 +96,7 @@ Scripts de limpeza em `scripts/` nao devem ser executados nem distribuidos como 
 - Multiusuario: classificado como apto com restricoes.
 - Piloto inicial: 3 a 5 usuarios.
 - 10 usuarios: meta condicionada a testes CONC e correcoes prioritarias.
-- `config.json`: precisa de lock/atomicidade futura em INST-001.
+- `config.json`: lock/atomicidade ja implementados (INST-001) e endurecidos para fail-closed/ownership (FINDING-004); teste de concorrencia entre dois administradores (CONC-004) permanece pendente.
 - GAL concorrente: depende de claim/lease antes do envio externo em CONC-003.
 - `banco/*`: mantido em dev/runtime como fallback controlado conforme DEC-002; nao imprimir conteudo, nao versionar e nao distribuir por canal aberto. Qualquer seed privado ou runtime privado exige canal controlado fora do Git/GitHub.
 - Instalacao Inicial: funcional com restricoes; requer melhorias futuras como dry-run, rollback, log/auditoria e testes adicionais.

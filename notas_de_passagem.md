@@ -1747,3 +1747,62 @@ em invocacao UNICA (T-AUD-021). 6.D pendente de retomada (recomendado /clear / s
   tkinter sem root/display, nao relacionada).
 - Pendente: formalizar como CA em `requirements.md`/`design.md`/`tasks.md` em rodada SDD propria
   (governanca CLAUDE.md §18).
+
+
+## 2026-06-11 — Rodada de Validacao e Depuracao dos Achados da Auditoria READ-ONLY
+
+Contexto: validacao dirigida dos 12 achados (FINDING-001..012) de uma auditoria READ-ONLY
+externa. Modo: inspecao estatica segura + testes-guardiao nao destrutivos. Sem alterar
+`config.json`, sem GAL/Selenium real, sem abrir dados sensiveis, sem resolver DHP-10/11/12.
+
+Classificacao final (resumo):
+- Confirmados e CORRIGIDOS nesta rodada: 002, 003, 004, 006/GAL-PEND-002, 007, 009.
+- FINDING-010 (lacuna de rastreabilidade) confirmado: as suites recomendadas em CLAUDE.md §11 /
+  AGENTS.md / design.md §7 (`test_ct_classification.py`, `test_vr1_vr2_inconclusivo_runtime.py`,
+  `test_analysis_service_phase6_vectorization.py`, `test_classificacao_cores_caracterizacao_h03.py`,
+  `test_extraction_plate_mapping_use_case.py`, `test_mapeamento_extracao_caracterizacao_h04.py`,
+  `test_0260325_exam_creator_registry_rollout.py`, `test_shared_storage_standardization.py`,
+  `test_t14_gal_idempotency_revalidation.py`, `test_extraction_caracterizacao_t14.py`) NAO existem
+  na arvore atual (`tests/` tem 32 arquivos, nenhum com esses nomes). Esta e a lacuna ja
+  registrada como **TEST-004** em `requirements.md §10` ("Reintegracao da suite de testes completa,
+  atualmente ausente/vazia... Pendente"). Acao: alinhar §11/design §7 aos nomes reais OU restaurar
+  as suites — exige rodada de governanca (CLAUDE.md §18) / SDD; NAO alterado nesta rodada.
+- FINDING-011 parcial / falso-positivo no fluxo real: a divergencia de borda de CT (8.0/35.0)
+  existe apenas no classificador base (`config/business_rules` + `domain/ct_rules.classificar_ct`
+  + `logic_engine`), usado so como `legacy_status` shadow em `analysis_service`. O fluxo canonico
+  real usa `classify_ct_with_runtime_profile`, que com `faixas_ct` do exame VR1e2 (`rp_min=8.01`,
+  `detect_max=35.0`, `inconc_min=35.01`) produz exatamente as bordas do requisito §5.1.
+  Recomendacao: testes parametrizados de borda + documentar runtime como canonico (rodada SDD).
+- FINDING-012 confirmado baixo: 4 contratos de equipamento (`7500_extended`/`quantstudio`
+  active=true; `abi_7500` active=false; `template_equipment_profile`). Recomendacao: validar que
+  registry/UI nao expoe inativo/template como operacional.
+- FINDING-005 (CONC-003) Alta, NAO implementado: GAL sem claim/lease interprocesso; `inflight_keys`
+  e apenas intra-processo/intra-CSV. Mantido como recomendacao de desenho (claim/lease transacional
+  com TTL antes de `enviar_amostra`). Mudanca critica/ampla — fora de correcao pequena com teste.
+- FINDING-001 e DHP-10/11/12 / PRIV-001 permanecem bloqueados por decisao humana / rodada de
+  configuracao/LGPD controlada.
+
+Achados adjacentes (Fase 5):
+- ADJ-001: 2o import top-level de Selenium fora de adapter em `exportacao/debug_login_runner.py:17`.
+- ADJ-002: `services/engine/analysis_engine.py::_map_ct_result` tambem consome o classificador base.
+- ADJ-003 (limpo): `config/default_config.json` e `config/feature_flags.json` sem caminhos
+  absolutos — FINDING-001 isolado ao `config.json`.
+- ADJ-004: `config/contracts/equipment/template_equipment_profile.json` com `active=true`.
+
+Commits desta rodada (branch `refactor/audit-refactoring`, PR #2):
+- `1167b3f` — FINDING-002 (mensagem dinamica de `ExamForaDoEscopoError` citando `active_exams`) +
+  FINDING-003 (remocao do metodo morto `_calcular_geral_fallback`, prioridade clinica divergente).
+  Guardioes: `tests/test_exam_scope_message.py`, `tests/test_ui_no_divergent_resultado_geral.py`.
+- `0860c4e` — FINDING-007 (lazy import de `seleniumrequests` em `_default_webdriver_factory`) +
+  GAL-PEND-002/FINDING-006 (suite mockada do `GalSendUseCase` sem Selenium real:
+  `tests/test_gal_send_use_case_mocked.py`, 8 passed; cobre dual-key/CA-11, inflight,
+  nao_encontrado, csv invalido, autorizacao, guardiao AST de import).
+- `9f55894` — FINDING-004 (lock do `config.json` fail-closed + ownership-safe em
+  `services/core/config_service._save_config`; constantes de timeout extraidas; `save()` retorna
+  bool real; `configure_shared_storage` falha-fechado). Guardiao:
+  `tests/test_config_lock_fail_closed.py` (3 casos, `CONFIG_PATH` isolado em `tmp`).
+- (este) — FINDING-009 (`README.md`: linha de lock/atomicidade de `config.json` atualizada) +
+  registro de FINDING-010/TEST-004 e do resumo da rodada nesta nota.
+
+Estado: `config.json` NAO alterado em nenhum commit. Nenhum dado sensivel aberto. Nenhuma DHP
+resolvida. Suites relevantes verdes a cada etapa.
