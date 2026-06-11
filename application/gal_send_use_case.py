@@ -11,6 +11,12 @@ from typing import Any, Callable, Dict, Optional, Protocol, Set
 import pandas as pd
 
 from application.access_control import ensure_operation_allowed
+from services.gal.gal_claims import (
+    ClaimOutcome,
+    GalClaimsPort,
+    SqliteGalClaimsRepository,
+    default_owner_token,
+)
 
 
 class GalSendServicePort(Protocol):
@@ -71,6 +77,10 @@ class GalSendServicePort(Protocol):
 
 
 ProgressCallback = Callable[[str, float], None]
+
+# CONC-003: validade (lease) de um claim de envio. Maior que o tempo maximo
+# esperado de um envio individual; leases expirados podem ser recuperados.
+_CLAIM_TTL_SECONDS = 300.0
 
 
 @dataclass(frozen=True)
@@ -151,9 +161,11 @@ class GalSendUseCase:
         service: GalSendServicePort,
         *,
         webdriver_factory: Optional[Callable[[], Any]] = None,
+        claims_repository: Optional[GalClaimsPort] = None,
     ) -> None:
         self._service = service
         self._webdriver_factory = webdriver_factory or _default_webdriver_factory
+        self._claims_repository = claims_repository
 
     def execute(
         self,
@@ -269,6 +281,17 @@ class GalSendUseCase:
             total_amostras = len(df)
             run_id = datetime.now().strftime("%Y%m%dT%H%M%S")
 
+            # CONC-003: claim/lease interprocesso (duravel) antes do envio externo.
+            # Default OFF — comportamento inalterado ate habilitar flag/config.
+            claims = self._claims_repository
+            if claims is None:
+                from services.core.runtime_flags import FLAG_GAL_CLAIM_LEASE
+                _flag_claim = feature_flags.is_enabled(FLAG_GAL_CLAIM_LEASE)
+                _cfg_claim = bool(_cs_meta.get_gal_config().get("claim_lease", False))
+                if _flag_claim or _cfg_claim:
+                    claims = SqliteGalClaimsRepository(journal_path.parent / "gal_claims.db")
+            claim_owner = default_owner_token(run_id) if claims is not None else ""
+
             from concurrent.futures import ThreadPoolExecutor, as_completed
             import threading
             
@@ -314,6 +337,25 @@ class GalSendUseCase:
                         # que outro worker com a mesma chave seja bloqueado.
                         inflight_keys.add(idempotency_key)
                         inflight_keys.add(legacy_idempotency_key)
+
+                # CONC-003: claim/lease duravel cross-process antes de enviar.
+                if claims is not None and not duplicate_match_key:
+                    try:
+                        _outcome = claims.try_claim(
+                            [idempotency_key, legacy_idempotency_key],
+                            owner=claim_owner,
+                            ttl_seconds=_CLAIM_TTL_SECONDS,
+                        )
+                    except Exception as _claim_exc:  # noqa: BLE001 - hardening
+                        _service_log(
+                            self._service,
+                            f"[CONC-003] Claim store indisponivel ({_claim_exc}); "
+                            "prosseguindo sem claim (degradado).",
+                            "warning",
+                        )
+                        _outcome = None
+                    if _outcome in (ClaimOutcome.ALREADY_COMMITTED, ClaimOutcome.HELD_BY_OTHER):
+                        duplicate_match_key = idempotency_key
 
                 if duplicate_match_key:
                     ts_final = datetime.now().isoformat()
@@ -405,15 +447,47 @@ class GalSendUseCase:
                             )
                             successful_keys.add(idempotency_key)
                             successful_keys.add(legacy_idempotency_key)
-                        
+
+                        # CONC-003: marca o claim como committed (idempotencia permanente).
+                        if claims is not None:
+                            try:
+                                claims.commit(
+                                    [idempotency_key, legacy_idempotency_key],
+                                    owner=claim_owner,
+                                )
+                            except Exception as _c_exc:  # noqa: BLE001 - hardening
+                                _service_log(
+                                    self._service,
+                                    f"[CONC-003] Falha ao commitar claim: {_c_exc}",
+                                    "warning",
+                                )
+
                         registro_sucesso = {
                             **payload,
                             "usuario": request.usuario_logado,
                             "timestamp": datetime.now().isoformat(),
                         }
-                    
+                    elif claims is not None:
+                        # Envio nao bem-sucedido: libera o claim para permitir retry.
+                        try:
+                            claims.release(
+                                [idempotency_key, legacy_idempotency_key],
+                                owner=claim_owner,
+                            )
+                        except Exception:  # noqa: BLE001 - hardening
+                            pass
+
                     return resultado_envio, is_success, registro_sucesso, idempotency_key, legacy_idempotency_key
                 else:
+                    # Claim adquirido mas amostra sem metadados: libera para retry futuro.
+                    if claims is not None:
+                        try:
+                            claims.release(
+                                [idempotency_key, legacy_idempotency_key],
+                                owner=claim_owner,
+                            )
+                        except Exception:  # noqa: BLE001 - hardening
+                            pass
                     ts_final = datetime.now().isoformat()
                     return {
                         "codigoAmostra": codigo_amostra,
