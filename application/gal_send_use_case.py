@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Protocol, Set
 
 import pandas as pd
-from seleniumrequests import Firefox
 
 from application.access_control import ensure_operation_allowed
 
@@ -116,6 +115,9 @@ def _default_webdriver_factory() -> Any:
     Precedência: feature flag USE_GAL_FIREFOX_HEADLESS > gal_integration.headless (config).
     Rollback: desativar ambos para voltar ao modo visível.
     """
+    # Import lazy de Selenium: mantem a camada de aplicacao importavel/testavel
+    # sem o pacote instalado (a injecao de webdriver_factory cobre os testes).
+    from seleniumrequests import Firefox
     from config.feature_flags import feature_flags as _ff
     from services.core.config_service import config_service as _cs
     _flag_headless = _ff.is_enabled("USE_GAL_FIREFOX_HEADLESS")
