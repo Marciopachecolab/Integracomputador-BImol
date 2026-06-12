@@ -546,3 +546,41 @@ Execucao SDD restrita e rastreavel das tarefas T-AUD nao bloqueadas:
 
 ## 13. Escopo dinamico de exames habilitados
 - [x] [Concluido] SDD-20260603-001 - Atualizar SDD e documentacao operacional para permitir todos os exames habilitados em `active_exams`, mantendo fail-closed para exames ausentes da lista e preservando VR1e2/ZDC como exames canonicos de referencia, nao como limite fixo do catalogo.
+
+## 14. Sequencia recomendada de decisoes pos-rodada de validacao (2026-06-12)
+
+Registra a ORDEM e as PRE-CONDICOES recomendadas para tratar as decisoes pendentes apos a
+Rodada de Validacao dos Achados da Auditoria READ-ONLY (FINDING-001..012). **Nenhum item abaixo
+e necessario para o piloto controlado de 3 a 5 usuarios**; todos visam amadurecimento rumo a uso
+ampliado. Nao executar sem rodada propria autorizada. A ordem reflete valor x risco.
+
+### Prioridade 0 — pre-requisitos para ampliar usuarios (somente quando houver demanda de >5)
+- [ ] [Pendente] **ROADMAP-P0-CONC005** - CONC-005 (validar SQLite em compartilhamento de rede real).
+  E **PRE-CONDICAO para habilitar a flag `USE_GAL_CLAIM_LEASE`** (claim/lease GAL implementado em
+  2026-06-11, FINDING-005/CONC-003, default OFF). Nao ligar a flag em producao antes de CONC-005 verde.
+- [ ] [Pendente] **ROADMAP-P0-CONC** - CONC-002 (multiprocess 10 usuarios em CSVs criticos), CONC-004
+  (dois admins aplicando config/instalacao), CONC-006 (logs com 10 processos). Conjunto que destrava
+  declarar aptidao para 10 usuarios (DEC-009 / LIM-004). FINDING-004 (lock fail-closed/ownership) ja
+  mitiga parte de CONC-004.
+
+### Prioridade 1 — robustez GAL (apos o claim/lease estar ligado)
+- [ ] [Pendente] **ROADMAP-P1-GALRETRY** - GAL-PEND-001 (retry idempotente com classificacao de erro
+  transitorio vs definitivo). **PRE-CONDICAO**: validar idempotencia do endpoint `/gravar/` no GAL real
+  (ambiente controlado) **e** ter o claim/lease (CONC-003) ativo. Antes disso, NAO implementar retry.
+  (GAL-PEND-002 — suite mockada sem Selenium — ja concluido nesta rodada.)
+
+### Prioridade 1 (paralela, nao-tecnica) — privacidade/dados residuais
+- [ ] [Pendente] **ROADMAP-P1-PRIV** - PRIV-001 + DHP-10 + DHP-11 + DHP-12: inspecao de
+  `dados/banco/historico.db`, CSVs residuais de `dados/banco/` e `banco_template/historico.db` em
+  ambiente LGPD-controlado, conduzida por responsavel autorizado. Conteudo sensivel NAO deve ser aberto
+  fora desse ambiente. Independe das frentes tecnicas; pode correr em paralelo.
+
+### Prioridade 2 — higiene de codigo/testes (quando houver folga; baixo risco)
+- [ ] [Pendente] **ROADMAP-P2-CT** - FINDING-011 Opcao B: alinhar/quarentenar as constantes do
+  classificador base (`config.business_rules` + `domain.ct_rules.classificar_ct` + `logic_engine`) as
+  bordas do requisito. **EXIGE aval clinico** e auditoria dos consumidores (ex.:
+  `services/engine/analysis_engine.py`). A Opcao A (runtime canonico + base como shadow, AUD-VAL-011) ja
+  esta concluida e e suficiente operacionalmente.
+- [ ] [Pendente] **ROADMAP-P2-TEST004** - TEST-004: restaurar a suite de testes historica completa
+  (nomes antigos) a partir do historico/backup, revalidando cada arquivo. O alinhamento documental
+  (FINDING-010 / AUD-VAL-SUITES) ja foi feito.

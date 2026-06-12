@@ -1806,3 +1806,28 @@ Commits desta rodada (branch `refactor/audit-refactoring`, PR #2):
 
 Estado: `config.json` NAO alterado em nenhum commit. Nenhum dado sensivel aberto. Nenhuma DHP
 resolvida. Suites relevantes verdes a cada etapa.
+
+
+## 2026-06-12 — Fechamento da Rodada de Validacao + roadmap de decisoes futuras
+
+Commits adicionais apos a nota de 2026-06-11 (branch `refactor/audit-refactoring`, PR #2):
+- `ac2c772` — FINDING-001: `config.json` VERSIONADO sanitizado como template (`data_root=""`,
+  `allowed_roots=[]`) via index, **sem tocar a worktree local** (runtime do dev preservado).
+  Guardiao: `tests/test_config_json_template_clean.py` (valida o blob commitado).
+- `d704cff` — FINDING-012: confirmado MITIGADO; guardiao `tests/test_equipment_registry_active_only.py`
+  (perfis ativos = {7500_extended, quantstudio}; template/inativo excluidos).
+- `d7f9db4` — FINDING-005/CONC-003: claim/lease interprocesso GAL (`services/gal/gal_claims.py`)
+  atras da flag `USE_GAL_CLAIM_LEASE` (default OFF); producao inalterada.
+- `0dceb97` — FINDING-011 (Opcao A) + FINDING-010/TEST-004: runtime profile declarado canonico,
+  base = shadow; `tests/test_ct_borda_runtime_profile.py`; §11/design §7 realinhados.
+
+Os 12 FINDINGs foram endereçados (corrigidos / mitigados com guardiao / documentados com decisao).
+
+**Roadmap de decisoes futuras (recomendacao registrada em `tasks.md §14`):** nada e necessario para
+o piloto 3-5 usuarios. Sequencia recomendada quando houver demanda de ampliacao:
+1. P0 — CONC-005 (validar SQLite em share) como PRE-CONDICAO para habilitar `USE_GAL_CLAIM_LEASE`;
+   + CONC-002/004/006 (concorrencia 10 usuarios).
+2. P1 — GAL-PEND-001 (retry) apos claim/lease ligado e validacao do `/gravar/`.
+3. P1 paralelo — PRIV-001 + DHP-10/11/12 (auditoria LGPD controlada, conduzida por responsavel).
+4. P2 (higiene, baixo risco) — FINDING-011 Opcao B (exige aval clinico) e TEST-004 (restaurar suite
+   historica).
