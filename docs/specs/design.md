@@ -20,8 +20,8 @@ Regra: comportamento clinico e operacional nao pode ficar duplicado em telas.
 
 ### 3.1 Analise
 - `services.analysis_service`: pipeline de ingestao, classificacao e resultado geral.
-- `services.analysis_runtime_contract`: resolve limite de CT por exame/alvo.
-- `domain.ct_rules` e `domain.ct_rules_runtime`: regra canonica de classificacao.
+- `services.analysis.analysis_runtime_contract.classify_ct_with_runtime_profile`: **classificador CANONICO** aplicado no fluxo real, por `faixas_ct` do exame (resolve limite de CT por exame/alvo). E o resultado escrito em `Res_<alvo>`.
+- **Classificador base (legado/shadow)**: `config.business_rules` + `domain.ct_rules.classificar_ct` + `services.analysis.logic_engine.classificar_ct`. No pipeline e calculado apenas como `legacy_status` de paridade; suas bordas (8.0/35.0) divergem do requisito §5 e **NAO devem ser tratadas como fonte da verdade** (FINDING-011). Guardiao das bordas canonicas: `tests/test_ct_borda_runtime_profile.py`.
 
 ### 3.2 Mapeamento
 - `application.extraction_plate_mapping_use_case`: calculo puro para preview e retorno.
@@ -334,12 +334,17 @@ Filtros de exame devem respeitar `ExamRegistry.active_exams`. Exame fora de esco
 - Consultas de relatorio devem ser somente leitura e nao podem acionar IO de analise, envio GAL ou alteracao de historico.
 
 ## 7. Diretriz de testes
+> Nota (2026-06-11, FINDING-010/TEST-004): comandos realinhados aos testes presentes em
+> `tests/`. A suite historica completa (nomes antigos) permanece pendente em TEST-004.
+
 Executar pelo menos:
 ```powershell
-python -m pytest tests/test_ct_classification.py tests/test_vr1_vr2_inconclusivo_runtime.py -q --tb=short
-python -m pytest tests/test_analysis_service_phase6_vectorization.py tests/test_classificacao_cores_caracterizacao_h03.py -q --tb=short
-python -m pytest tests/test_extraction_plate_mapping_use_case.py tests/test_mapeamento_extracao_caracterizacao_h04.py -q --tb=short
-python -m pytest tests/test_0260325_exam_creator_registry_rollout.py tests/test_shared_storage_standardization.py -q --tb=short
+# CT por borda (runtime profile canonico) + Resultado_geral + dominio puro
+python -m pytest tests/test_ct_borda_runtime_profile.py tests/test_poco_vazio_invalido.py tests/test_dominio_imports_puros.py -q --tb=short
+# Pipeline de analise e UI (sem duplicar regra clinica)
+python -m pytest tests/test_full_analysis_grid.py tests/test_analysis_service_geometric_expansion.py tests/test_ui_janela_analise_regression.py -q --tb=short
+# Idempotencia/concorrencia GAL (dual-key + claim/lease) e shared storage/config
+python -m pytest tests/test_gal_send_use_case_mocked.py tests/test_gal_claims_repository.py tests/test_config_lock_fail_closed.py -q --tb=short
 ```
 
 ## 8. Dividas tecnicas documentadas

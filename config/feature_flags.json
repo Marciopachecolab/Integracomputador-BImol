@@ -178,5 +178,14 @@
     "description": "Pula consulta a /bmh/entrada-resultados/lista/ e envia usando codigoAmostra direto como codigo/registroInterno. requisicao e paciente ficam vazios — GAL localiza o registro pelo par codigoAmostra+gal_exame_codigo. ROLLBACK: setar enabled=false para restaurar comportamento com metadados.",
     "created_at": "2026-05-30",
     "owner": "team-dev"
+  },
+  "USE_GAL_CLAIM_LEASE": {
+    "enabled": false,
+    "rollout_percentage": 0,
+    "force_users": [],
+    "exclude_users": [],
+    "description": "CONC-003: claim/lease interprocesso (SQLite) das chaves de idempotencia antes do envio externo, fechando a janela de duplicidade entre estacoes. Default OFF; habilitar apenas apos validar SQLite em compartilhamento (CONC-005). ROLLBACK: setar enabled=false.",
+    "created_at": "2026-06-11",
+    "owner": "team-dev"
   }
 }
